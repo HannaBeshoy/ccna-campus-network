@@ -26,7 +26,7 @@ addressing:
 
 routers:
   R1:
-    model: ISR4321
+    model: ISR4331
     loopback: {v4: 10.20.254.1/32, v6: "2001:db8:acad:254::1/128"}
     interfaces:
       G0/0/0: {desc: "ISP uplink", v4: 203.0.113.2/30, v6: "2001:db8:f::2/64"}

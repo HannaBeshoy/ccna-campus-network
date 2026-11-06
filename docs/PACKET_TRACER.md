@@ -6,7 +6,7 @@ About 1.5 hours. The result, `packet-tracer/campus.pkt`, goes into the repositor
 
 | Name | Packet Tracer device | Notes |
 | --- | --- | --- |
-| R1 | ISR4321 | |
+| R1 | ISR4331 | |
 | ISP | 2911 (or any router) | only G0/0 with 203.0.113.1/30, a loopback 8.8.8.8/32 to ping, and `ip route 10.20.0.0 255.255.128.0 203.0.113.2` |
 | D1, D2 | 3650-24PS | add the power supply in the Physical tab (AC-POWER-SUPPLY), or the switch stays off |
 | A1, A2 | 2960-24TT | |
