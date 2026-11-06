@@ -1,0 +1,48 @@
+spanning-tree mode {{ stp.mode }}
+{%- if root_vlans %}
+spanning-tree vlan {{ root_vlans }} priority {{ stp.root_priority }}
+{%- endif %}
+{%- if secondary_vlans %}
+spanning-tree vlan {{ secondary_vlans }} priority {{ stp.secondary_priority }}
+{%- endif %}
+!
+{%- for v in vlans %}
+vlan {{ v.id }}
+ name {{ v.name }}
+{%- endfor %}
+!
+{%- for ch in channels %}
+interface {{ ch.range }}
+ description to {{ ch.peer }} (Port-channel{{ ch.id }})
+{%- if trunk_encapsulation %}
+ switchport trunk encapsulation dot1q
+{%- endif %}
+ switchport mode trunk
+ switchport trunk native vlan {{ parking }}
+ switchport trunk allowed vlan {{ trunk_vlans }}
+ switchport nonegotiate
+ channel-group {{ ch.id }} mode active
+ no shutdown
+interface Port-channel{{ ch.id }}
+ description to {{ ch.peer }}
+{%- if trunk_encapsulation %}
+ switchport trunk encapsulation dot1q
+{%- endif %}
+ switchport mode trunk
+ switchport trunk native vlan {{ parking }}
+ switchport trunk allowed vlan {{ trunk_vlans }}
+ switchport nonegotiate
+{%- if role == 'access' %}
+ ip dhcp snooping trust
+ ip arp inspection trust
+{%- endif %}
+!
+{%- endfor %}
+{%- for u in unused %}
+interface {{ u }}
+ description unused
+ switchport mode access
+ switchport access vlan {{ parking }}
+ shutdown
+{%- endfor %}
+!

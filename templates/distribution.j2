@@ -1,0 +1,57 @@
+{% include "_base.j2" %}
+ip routing
+ipv6 unicast-routing
+!
+{% include "_switch_common.j2" %}
+interface {{ uplink.long }}
+ description to R1
+ no switchport
+ ip address {{ uplink.v4.ip }} {{ uplink.v4.netmask }}
+ ipv6 address {{ uplink.v6 }}
+ no shutdown
+!
+{%- if wlc %}
+interface {{ wlc.long }}
+ description to {{ wlc.name }} (wireless LAN controller)
+{%- if trunk_encapsulation %}
+ switchport trunk encapsulation dot1q
+{%- endif %}
+ switchport mode trunk
+ switchport trunk native vlan {{ parking }}
+ switchport trunk allowed vlan {{ wlc.vlans }}
+ switchport nonegotiate
+ spanning-tree portfast trunk
+ no shutdown
+!
+{%- endif %}
+{%- for s in svis %}
+interface Vlan{{ s.id }}
+ description {{ s.name }} gateway (HSRP active: {{ s.primary }})
+ ip address {{ s.ip }} {{ s.mask }}
+ ipv6 address {{ s.ip6 }}/64
+ ipv6 address {{ s.lla }} link-local
+ standby version 2
+ standby {{ s.id }} ip {{ s.vip }}
+{%- if s.priority != 100 %}
+ standby {{ s.id }} priority {{ s.priority }}
+{%- endif %}
+ standby {{ s.id }} preempt
+ standby {{ s.g6 }} ipv6 autoconfig
+{%- if s.priority != 100 %}
+ standby {{ s.g6 }} priority {{ s.priority }}
+{%- endif %}
+ standby {{ s.g6 }} preempt
+{%- if s.dhcp %}
+ ip helper-address {{ dhcp_server }}
+{%- endif %}
+{%- if s.dhcpv6_stateless %}
+ ipv6 nd other-config-flag
+ ipv6 dhcp relay destination {{ dhcp_server6 }}
+{%- endif %}
+ no shutdown
+!
+{%- endfor %}
+ip route 0.0.0.0 0.0.0.0 {{ r1_v4 }}
+ipv6 route ::/0 {{ r1_v6 }}
+!
+end

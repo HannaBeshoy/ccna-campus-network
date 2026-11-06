@@ -1,0 +1,83 @@
+A1#show spanning-tree
+
+VLAN0010
+  Spanning tree enabled protocol rstp
+  Root ID    Priority    24586
+             Address     0001.4211.aa01
+             Cost        12
+             Port        65 (Port-channel11)
+             Hello Time   2 sec  Max Age 20 sec  Forward Delay 15 sec
+
+  Bridge ID  Priority    32778  (priority 32768 sys-id-ext 10)
+             Address     000a.f3c1.2b11
+             Hello Time   2 sec  Max Age 20 sec  Forward Delay 15 sec
+             Aging Time  300 sec
+
+Interface           Role Sts Cost      Prio.Nbr Type
+------------------- ---- --- --------- -------- --------------------------------
+Fa0/1               Desg FWD 19        128.1    P2p Edge
+Po11                Root FWD 12        128.65   P2p
+Po12                Altn BLK 12        128.66   P2p
+
+VLAN0020
+  Spanning tree enabled protocol rstp
+  Root ID    Priority    24596
+             Address     0001.4211.aa01
+             Cost        12
+             Port        65 (Port-channel11)
+
+  Bridge ID  Priority    32788  (priority 32768 sys-id-ext 20)
+             Address     000a.f3c1.2b11
+
+Interface           Role Sts Cost      Prio.Nbr Type
+------------------- ---- --- --------- -------- --------------------------------
+Fa0/9               Desg FWD 19        128.9    P2p Edge
+Po11                Root FWD 12        128.65   P2p
+Po12                Altn BLK 12        128.66   P2p
+
+VLAN0030
+  Spanning tree enabled protocol rstp
+  Root ID    Priority    24606
+             Address     0002.17aa.bb02
+             Cost        12
+             Port        66 (Port-channel12)
+
+  Bridge ID  Priority    32798  (priority 32768 sys-id-ext 30)
+             Address     000a.f3c1.2b11
+
+Interface           Role Sts Cost      Prio.Nbr Type
+------------------- ---- --- --------- -------- --------------------------------
+Fa0/17              Desg FWD 19        128.17   P2p Edge
+Po11                Altn BLK 12        128.65   P2p
+Po12                Root FWD 12        128.66   P2p
+
+VLAN0040
+  Spanning tree enabled protocol rstp
+  Root ID    Priority    24616
+             Address     0002.17aa.bb02
+             Cost        12
+             Port        66 (Port-channel12)
+
+  Bridge ID  Priority    32808  (priority 32768 sys-id-ext 40)
+             Address     000a.f3c1.2b11
+
+Interface           Role Sts Cost      Prio.Nbr Type
+------------------- ---- --- --------- -------- --------------------------------
+Po11                Altn BLK 12        128.65   P2p
+Po12                Root FWD 12        128.66   P2p
+
+VLAN0099
+  Spanning tree enabled protocol rstp
+  Root ID    Priority    24675
+             Address     0001.4211.aa01
+             Cost        12
+             Port        65 (Port-channel11)
+
+  Bridge ID  Priority    32867  (priority 32768 sys-id-ext 99)
+             Address     000a.f3c1.2b11
+
+Interface           Role Sts Cost      Prio.Nbr Type
+------------------- ---- --- --------- -------- --------------------------------
+Fa0/19              Desg FWD 19        128.19   P2p Edge
+Po11                Root FWD 12        128.65   P2p
+Po12                Altn BLK 12        128.66   P2p

@@ -1,0 +1,22 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
+      - name: The model is consistent
+        run: python -m campus check
+      - name: The committed configs are exactly what the model generates
+        run: |
+          python -m campus generate --out configs
+          python -m campus plan > docs/ADDRESSING.md
+          git diff --exit-code configs docs/ADDRESSING.md
+      - name: Every config passes the security policy
+        run: python -m campus lint configs/*.cfg
+      - run: python -m campus stp
+      - run: python -m pytest -v tests

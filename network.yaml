@@ -1,0 +1,91 @@
+# network.yaml - the whole campus network in one file. Everything else is generated from it:
+#   python -m campus generate        -> configs/*.cfg
+#   python -m campus check           -> validates this file (addresses, VLANs, links, STP vs HSRP)
+# Secrets are never stored here: the configs get placeholders, filled from secrets.yaml (not in git).
+
+site:
+  name: HU01 test hall
+  domain: hu01.test
+  banner: "Authorised access only. HU01 test hall network."
+
+vlans:          # id: name, IPv4 subnet, IPv6 /64, which distribution switch is HSRP active and STP root
+  10:  {name: STAFF,      v4: 10.20.10.0/24, v6: "2001:db8:acad:10::/64", primary: D1, dhcp: true}
+  20:  {name: PRODUCTION, v4: 10.20.20.0/24, v6: "2001:db8:acad:20::/64", primary: D1, dhcp: true}
+  30:  {name: IOT,        v4: 10.20.30.0/24, v6: "2001:db8:acad:30::/64", primary: D2, dhcp: true, dhcpv6_stateless: true}
+  40:  {name: WIFI,       v4: 10.20.40.0/24, v6: "2001:db8:acad:40::/64", primary: D2, dhcp: true}
+  99:  {name: MGMT,       v4: 10.20.99.0/24, v6: "2001:db8:acad:99::/64", primary: D1, dhcp: false}
+  999: {name: PARKING}  # unused ports and the native VLAN of every trunk: carries nothing
+
+addressing:
+  gateway_host: 1          # .1 = the HSRP virtual address of each VLAN
+  d1_host: 2
+  d2_host: 3
+  dhcp_excluded_last: 20   # .1-.20 are never handed out (gateways, switches, printers)
+  dns: [10.20.99.53]
+  dns_v6: ["2001:db8:acad:99::53"]
+
+routers:
+  R1:
+    model: ISR4321
+    loopback: {v4: 10.20.254.1/32, v6: "2001:db8:acad:254::1/128"}
+    interfaces:
+      G0/0/0: {desc: "ISP uplink", v4: 203.0.113.2/30, v6: "2001:db8:f::2/64"}
+      G0/0/1: {desc: "to D1 G1/0/24", v4: 10.20.255.1/30, v6: "2001:db8:acad:ff01::1/64", peer: D1}
+      G0/0/2: {desc: "to D2 G1/0/24", v4: 10.20.255.5/30, v6: "2001:db8:acad:ff02::1/64", peer: D2}
+    default_route: {v4: 203.0.113.1, v6: "2001:db8:f::1"}
+    campus_summary: {v4: 10.20.0.0/17, v6: "2001:db8:acad::/56"}
+    primary_path: D1         # the floating static route through D2 takes over when D1's link fails
+    floating_ad: 10
+    host_routes:             # longest match: this /32 beats the campus /17 and goes straight to D2
+      - {dest: 10.20.99.20, via: D2, why: "WLC1 hangs off D2"}
+
+switches:
+  D1:
+    model: C3650-24PS
+    role: distribution
+    uplink: {port: G1/0/24, v4: 10.20.255.2/30, v6: "2001:db8:acad:ff01::2/64"}
+  D2:
+    model: C3650-24PS
+    role: distribution
+    uplink: {port: G1/0/24, v4: 10.20.255.6/30, v6: "2001:db8:acad:ff02::2/64"}
+  A1:
+    model: WS-C2960-24TT-L
+    role: access
+    mgmt: 10.20.99.11/24
+    access_ports:
+      Fa0/1-8:   {vlan: 10, desc: "staff desk"}
+      Fa0/9-16:  {vlan: 20, desc: "test station"}
+      Fa0/17-18: {vlan: 30, desc: "ESP32 sensor node", max_mac: 1, violation: shutdown}
+      Fa0/19:    {vlan: 99, desc: "lightweight AP (CAPWAP to the WLC)", max_mac: 1}
+    unused: [Fa0/20, G0/1, G0/2]
+  A2:
+    model: WS-C2960-24TT-L
+    role: access
+    mgmt: 10.20.99.12/24
+    access_ports:
+      Fa0/1-12:  {vlan: 20, desc: "test station"}
+      Fa0/13-16: {vlan: 30, desc: "ESP32 sensor node", max_mac: 1, violation: shutdown}
+      Fa0/17-18: {vlan: 10, desc: "staff desk"}
+    unused: [Fa0/19, Fa0/20, G0/1, G0/2]
+
+etherchannels:   # LACP bundles; both ends listed, the generator configures both sides
+  - {id: 1,  a: D1, a_ports: G1/0/21-22, b: D2, b_ports: G1/0/21-22, speed: 1000}
+  - {id: 11, a: D1, a_ports: G1/0/1-2,   b: A1, b_ports: Fa0/21-22,  speed: 100}
+  - {id: 12, a: D2, a_ports: G1/0/1-2,   b: A1, b_ports: Fa0/23-24,  speed: 100}
+  - {id: 13, a: D1, a_ports: G1/0/3-4,   b: A2, b_ports: Fa0/21-22,  speed: 100}
+  - {id: 14, a: D2, a_ports: G1/0/3-4,   b: A2, b_ports: Fa0/23-24,  speed: 100}
+
+wlc:             # the wireless LAN controller hangs off D2 on a trunk (configured in its web GUI)
+  name: WLC1
+  switch: D2
+  port: G1/0/10
+  mgmt: 10.20.99.20/24
+  wlan: {ssid: HU01-STAFF, vlan: 40, security: WPA2-Enterprise, radius: 10.20.99.30}
+
+dhcp_reservations:   # IOS manual bindings: fill in the real MAC addresses on the lab day
+  - {name: ESP32-NODE-1, vlan: 30, ip: 10.20.30.21, mac: 0000.0000.0001}
+
+stp:
+  mode: rapid-pvst
+  root_priority: 24576        # "root primary"
+  secondary_priority: 28672   # "root secondary"

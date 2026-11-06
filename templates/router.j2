@@ -1,0 +1,53 @@
+{% include "_base.j2" %}
+ipv6 unicast-routing
+!
+{%- for p in pools %}
+ip dhcp excluded-address {{ p.excl_first }} {{ p.excl_last }}
+{%- endfor %}
+!
+{%- for p in pools %}
+ip dhcp pool {{ p.name }}
+ network {{ p.network }} {{ p.mask }}
+ default-router {{ p.gw }}
+ dns-server {{ dns }}
+ domain-name {{ site.domain }}
+{%- endfor %}
+{%- for r in reservations %}
+ip dhcp pool {{ r.name }}
+ host {{ r.ip }} {{ r.mask }}
+ hardware-address {{ r.mac }}
+ default-router {{ r.gw }}
+ dns-server {{ dns }}
+{%- endfor %}
+!
+ipv6 dhcp pool {{ dhcpv6_pool }}
+ dns-server {{ dns6 }}
+ domain-name {{ site.domain }}
+!
+interface Loopback0
+ description DHCP server address for the relays
+ ip address {{ lo.v4.ip }} 255.255.255.255
+ ipv6 address {{ lo.v6 }}
+!
+{%- for i in interfaces %}
+interface {{ i.long }}
+ description {{ i.desc }}
+ ip address {{ i.v4.ip }} {{ i.v4.netmask }}
+ ipv6 address {{ i.v6 }}
+{%- if i.peer %}
+ ipv6 dhcp server {{ dhcpv6_pool }}
+{%- endif %}
+ no shutdown
+!
+{%- endfor %}
+ip route 0.0.0.0 0.0.0.0 {{ default_v4 }}
+ip route {{ summary.network_address }} {{ summary.netmask }} {{ primary_hop }}
+ip route {{ summary.network_address }} {{ summary.netmask }} {{ backup_hop }} {{ floating_ad }}
+{%- for h in host_routes %}
+ip route {{ h.dest }} 255.255.255.255 {{ h.hop }}
+{%- endfor %}
+ipv6 route ::/0 {{ default_v6 }}
+ipv6 route {{ summary6 }} {{ primary_hop6 }}
+ipv6 route {{ summary6 }} {{ backup_hop6 }} {{ floating_ad }}
+!
+end

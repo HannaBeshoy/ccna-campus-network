@@ -1,0 +1,34 @@
+{% include "_base.j2" %}
+{% include "_switch_common.j2" %}
+interface Vlan{{ mgmt_vlan }}
+ description management
+ ip address {{ mgmt.ip }} {{ mgmt.netmask }}
+ no shutdown
+ip default-gateway {{ mgmt_gw }}
+!
+ip dhcp snooping
+ip dhcp snooping vlan {{ user_vlans }}
+! the relay on D1/D2 fills in giaddr; option 82 from this switch would make the IOS DHCP server drop requests
+no ip dhcp snooping information option
+ip arp inspection vlan {{ user_vlans }}
+ip arp inspection validate src-mac dst-mac ip
+!
+{%- for p in ports %}
+interface {{ p.range }}
+ description {{ p.desc }}
+ switchport mode access
+ switchport access vlan {{ p.vlan }}
+ switchport nonegotiate
+ switchport port-security
+ switchport port-security maximum {{ p.max_mac }}
+ switchport port-security mac-address sticky
+ switchport port-security violation {{ p.violation }}
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+{%- if p.snoop %}
+ ip dhcp snooping limit rate 10
+{%- endif %}
+ no shutdown
+!
+{%- endfor %}
+end

@@ -1,0 +1,24 @@
+! {{ name }} ({{ model }}) - generated from network.yaml by "python -m campus generate"; edit the YAML, not this file
+!
+hostname {{ name }}
+no ip domain-lookup
+ip domain-name {{ site.domain }}
+service password-encryption
+enable secret {{ secrets.enable }}
+username admin privilege 15 secret {{ secrets.admin }}
+banner motd ^{{ site.banner }}^
+!
+crypto key generate rsa general-keys modulus 2048
+ip ssh version 2
+ip ssh time-out 60
+ip ssh authentication-retries 3
+!
+line con 0
+ logging synchronous
+ login local
+ exec-timeout 10 0
+line vty 0 {{ vty_last }}
+ transport input ssh
+ login local
+ exec-timeout 10 0
+!
