@@ -6,7 +6,7 @@ About 1.5 hours. The result, `packet-tracer/campus.pkt`, goes into the repositor
 
 | Name | Packet Tracer device | Notes |
 | --- | --- | --- |
-| R1 | ISR4331 | |
+| R1 | 2911 | three Gigabit ports G0/0-G0/2 (the ISR4321 and ISR4331 in Packet Tracer have only two) |
 | ISP | 2911 (or any router) | only G0/0 with 203.0.113.1/30, a loopback 8.8.8.8/32 to ping, and `ip route 10.20.0.0 255.255.128.0 203.0.113.2` |
 | D1, D2 | 3650-24PS | add the power supply in the Physical tab (AC-POWER-SUPPLY), or the switch stays off |
 | A1, A2 | 2960-24TT | |
@@ -21,9 +21,9 @@ Copper straight-through everywhere, following the port names in `network.yaml`:
 
 | From | To |
 | --- | --- |
-| R1 G0/0/0 | ISP G0/0 |
-| R1 G0/0/1 | D1 G1/0/24 |
-| R1 G0/0/2 | D2 G1/0/24 |
+| R1 G0/0 | ISP G0/0 |
+| R1 G0/1 | D1 G1/0/24 |
+| R1 G0/2 | D2 G1/0/24 |
 | D1 G1/0/21-22 | D2 G1/0/21-22 |
 | D1 G1/0/1-2 | A1 Fa0/21-22 |
 | D2 G1/0/1-2 | A1 Fa0/23-24 |

@@ -11,9 +11,9 @@ S*    0.0.0.0/0 [1/0] via 203.0.113.1
 S        10.20.0.0/17 [1/0] via 10.20.255.2
 S        10.20.99.20/32 [1/0] via 10.20.255.6
 C        10.20.254.1/32 is directly connected, Loopback0
-C        10.20.255.0/30 is directly connected, GigabitEthernet0/0/1
-L        10.20.255.1/32 is directly connected, GigabitEthernet0/0/1
-C        10.20.255.4/30 is directly connected, GigabitEthernet0/0/2
+C        10.20.255.0/30 is directly connected, GigabitEthernet0/1
+L        10.20.255.1/32 is directly connected, GigabitEthernet0/1
+C        10.20.255.4/30 is directly connected, GigabitEthernet0/2
       203.0.113.0/24 is variably subnetted, 2 subnets, 2 masks
-C        203.0.113.0/30 is directly connected, GigabitEthernet0/0/0
-L        203.0.113.2/32 is directly connected, GigabitEthernet0/0/0
+C        203.0.113.0/30 is directly connected, GigabitEthernet0/0
+L        203.0.113.2/32 is directly connected, GigabitEthernet0/0

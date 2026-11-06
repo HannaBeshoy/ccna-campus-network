@@ -19,7 +19,7 @@ The network of a small factory test hall, designed the way the SRWE course build
 
 ```mermaid
 flowchart TB
-    ISP((ISP)) --- R1[R1 ISR4331<br/>DHCP server, static routes]
+    ISP((ISP)) --- R1[R1 Cisco 2911<br/>DHCP server, static routes]
     R1 ---|"10.20.255.0/30"| D1[D1 Catalyst 3650<br/>HSRP active VLAN 10, 20, 99<br/>STP root VLAN 10, 20, 99]
     R1 ---|"10.20.255.4/30"| D2[D2 Catalyst 3650<br/>HSRP active VLAN 30, 40<br/>STP root VLAN 30, 40]
     D1 ===|"Po1 LACP 2x1G"| D2

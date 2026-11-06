@@ -26,12 +26,12 @@ addressing:
 
 routers:
   R1:
-    model: ISR4331
+    model: "2911"
     loopback: {v4: 10.20.254.1/32, v6: "2001:db8:acad:254::1/128"}
     interfaces:
-      G0/0/0: {desc: "ISP uplink", v4: 203.0.113.2/30, v6: "2001:db8:f::2/64"}
-      G0/0/1: {desc: "to D1 G1/0/24", v4: 10.20.255.1/30, v6: "2001:db8:acad:ff01::1/64", peer: D1}
-      G0/0/2: {desc: "to D2 G1/0/24", v4: 10.20.255.5/30, v6: "2001:db8:acad:ff02::1/64", peer: D2}
+      G0/0: {desc: "ISP uplink", v4: 203.0.113.2/30, v6: "2001:db8:f::2/64"}
+      G0/1: {desc: "to D1 G1/0/24", v4: 10.20.255.1/30, v6: "2001:db8:acad:ff01::1/64", peer: D1}
+      G0/2: {desc: "to D2 G1/0/24", v4: 10.20.255.5/30, v6: "2001:db8:acad:ff02::1/64", peer: D2}
     default_route: {v4: 203.0.113.1, v6: "2001:db8:f::1"}
     campus_summary: {v4: 10.20.0.0/17, v6: "2001:db8:acad::/56"}
     primary_path: D1         # the floating static route through D2 takes over when D1's link fails

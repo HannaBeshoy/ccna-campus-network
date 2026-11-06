@@ -1,6 +1,6 @@
 # Lab-day test sheet: the lab's Cisco switches
 
-About 2 hours with the lab's routers and switches. The lab's models may differ from the design (for example 2960s instead of 3650s for the distribution layer, or a 1941 instead of an ISR4331): change `model:` and the port names in `network.yaml`, run `python -m campus check` and `generate`, and use the new configurations. A Layer 2 only switch cannot be D1/D2; then use a router-on-a-stick variant (module 4) and note it.
+About 2 hours with the lab's routers and switches. The lab's models may differ from the design (for example 2960s instead of 3650s for the distribution layer, or a 1941 instead of a 2911): change `model:` and the port names in `network.yaml`, run `python -m campus check` and `generate`, and use the new configurations. A Layer 2 only switch cannot be D1/D2; then use a router-on-a-stick variant (module 4) and note it.
 
 ## Before
 
