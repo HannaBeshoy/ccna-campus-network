@@ -606,3 +606,71 @@ def test_verify_catches_a_tracert_through_the_wrong_switch(net, tmp_path):
     assert not ok
     assert any(l.startswith("FAIL vlan10: tracert") and "got D2 > R1 > ISP" in l for l in lines)
     assert any(l.startswith("FAIL vlan20_ping6_server") for l in lines)
+
+
+# --- router-on-a-stick variant (SRWE 4) ------------------------------------------------------
+from campus.roas import render_roas, report as roas_report  # noqa: E402
+from campus.routing import Device  # noqa: E402
+
+
+@pytest.fixture
+def roas(net):
+    return render_roas(net)
+
+
+def test_roas_subinterface_per_vlan(roas):
+    r = parse(roas["R1-ROAS"])
+    sub = r["interface gigabitethernet0/1.20"]
+    assert "encapsulation dot1q 20" in sub and "ip address 10.20.20.1 255.255.255.0" in sub
+    assert "ipv6 nd managed-config-flag" in sub and "ipv6 dhcp server roas-production" in sub
+    assert "ipv6 nd other-config-flag" in r["interface gigabitethernet0/1.30"]
+    assert "encapsulation dot1q 999 native" in r["interface gigabitethernet0/1.999"]
+    assert not any(l.startswith("ip address") for l in r["interface gigabitethernet0/1.999"])
+    assert not any(l.startswith("ip address") for l in r["interface gigabitethernet0/1"])
+
+
+def test_roas_router_serves_dhcp_itself(roas):
+    text = roas["R1-ROAS"]
+    assert "ip dhcp pool ROAS-STAFF" in text and "default-router 10.20.10.1" in text
+    assert "ip helper-address" not in text and "ipv6 dhcp relay" not in text
+
+
+def test_roas_router_routes_between_all_vlans(net, roas):
+    d = Device("R1-ROAS", roas["R1-ROAS"])
+    for v in net.routed_vlans:
+        r = d.lookup(v.host(50))
+        assert r[4] == "C" and r[3] == f"gigabitethernet0/1.{v.id}"
+
+
+def test_roas_switch_trunk_and_ports(roas):
+    s = parse(roas["S1-ROAS"])
+    t = s["interface gigabitethernet0/1"]
+    assert "switchport trunk native vlan 999" in t and "switchport trunk allowed vlan 10,20,30,40,50,99" in t
+    assert "ip dhcp snooping trust" in t
+    staff = s["interface fastethernet0/4"]
+    assert "switchport access vlan 10" in staff and "switchport voice vlan 50" in staff
+    assert "switchport access vlan 20" in s["interface fastethernet0/5"]
+    assert "shutdown" in s["interface fastethernet0/21"] and "shutdown" in s["interface gigabitethernet0/2"]
+
+
+def test_roas_configs_pass_the_policy(roas):
+    for name, text in roas.items():
+        assert lint_text(text) == [], name
+
+
+def test_roas_committed(net, roas):
+    for name, text in roas.items():
+        with open(os.path.join(ROOT, "configs", "roas", f"{name}.cfg")) as f:
+            assert f.read() == text
+    with open(os.path.join(ROOT, "docs", "ROUTER_ON_A_STICK.md")) as f:
+        assert f.read() == roas_report(net)
+
+
+def test_roas_too_many_ports_per_vlan(net):
+    bad = changed(net, lambda r: r["router_on_a_stick"]["switch"].update(ports_per_vlan=6))   # 5 x 6 > 24
+    assert any("router-on-a-stick" in x and "do not fit" in x for x in model.validate(bad))
+
+
+def test_roas_management_address_clash(net):
+    bad = changed(net, lambda r: r["router_on_a_stick"]["switch"].update(mgmt_host=11))      # A1's address
+    assert any("already an access switch" in x for x in model.validate(bad))

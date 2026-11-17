@@ -15,7 +15,8 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus trace` and `paths`: every router's routing table built from the configs, packets followed hop by hop to the dual-stack server behind the ISP, with links or switches taken down ([docs/PATHS.md](docs/PATHS.md)); this found a real gap, fixed with a floating default route between the distribution switches
 - [x] `python -m campus vlsm`: every subnet sized from the hosts it must hold plus growth, a VLSM allocation next to the /24 plan, /30 against /31 links ([docs/VLSM.md](docs/VLSM.md))
 - [x] `python -m campus connectivity`: the ping and tracert test plan with every expected hop in IPv4 and IPv6, the failover paths and extended pings from the routers ([docs/CONNECTIVITY.md](docs/CONNECTIVITY.md)); `verify` checks the saved outputs. The extended ping found that the ISP only routed the VLAN summary back
-- [x] **131 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] `python -m campus roas`: the router-on-a-stick variant (one router with a subinterface per VLAN, one 2960) from the same model, for the module 4 lab or a lab without Layer 3 switches ([docs/ROUTER_ON_A_STICK.md](docs/ROUTER_ON_A_STICK.md))
+- [x] **139 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -58,7 +59,7 @@ The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.
 | A /24 per VLAN with the VLAN number in the third octet, not VLSM | the /17 has room; a VLSM plan would fit in a /21, but 10.20.30.x = VLAN 30 is readable at a glance; every pool is checked to hold its hosts + 50% growth | ITN 11 |
 | Two distribution switches share the load: D1 for VLANs 10, 20, 99, D2 for 30, 40, 50 | both uplinks of every access switch carry traffic, each for some VLANs | 5, 9 |
 | Every link between switches is a 2-member LACP EtherChannel | a cable can fail without STP reconverging, and STP sees one link instead of two | 6 |
-| Routing on the Layer 3 switches (SVIs), routed uplinks to R1 | inter-VLAN traffic never leaves the distribution layer; no router-on-a-stick bottleneck | 4, 14 |
+| Routing on the Layer 3 switches (SVIs), routed uplinks to R1 | inter-VLAN traffic never leaves the distribution layer; no router-on-a-stick bottleneck (the router-on-a-stick variant is generated for comparison and as a fallback) | 4, 14 |
 | DHCP server on R1, relays on the SVIs | one place for all pools; the relay fills in giaddr so the server picks the right pool | 7 |
 | All three IPv6 address methods: SLAAC only, stateless DHCPv6 on IOT, stateful DHCPv6 on PRODUCTION | sensors only need a DNS server; test stations get recorded addresses, so a test result can be traced to the station | 8 |
 | R1 reaches the campus by one summary route, with a floating static (AD 10) through D2 | one line instead of five, and an automatic backup when D1's link fails | 15 |
@@ -102,6 +103,7 @@ python -m campus vlsm                  # subnet sizes from the host counts
 python -m campus trace vlan10 server --down R1:G0/1   # follow a packet with D1's uplink down
 python -m campus paths                 # every VLAN to the server, five failure scenarios
 python -m campus connectivity          # ping/tracert plan with the expected hops
+python -m campus roas                  # router-on-a-stick variant in configs/roas/
 python -m campus diff A1 saved_running_config.txt
 python -m campus verify captures       # show-command outputs from the lab
 python -m pytest -v tests
@@ -113,9 +115,9 @@ python -m pytest -v tests
 network.yaml        the design
 campus/             model and checks, generator, policy lint, running-config diff, STP prediction, routing simulator, lab verifier
 templates/          Jinja2 templates of the router, distribution and access configurations
-configs/            the generated configurations (R1, ISP, D1, D2, A1, A2)
-docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, ping/tracert plan, Packet Tracer steps, lab-day test sheet
-tests/              131 tests; fixtures/lab holds hand-written show outputs in IOS format
+configs/            the generated configurations (R1, ISP, D1, D2, A1, A2); configs/roas/ the router-on-a-stick variant
+docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, ping/tracert plan, router-on-a-stick sheet, Packet Tracer steps, lab-day test sheet
+tests/              139 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 

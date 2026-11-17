@@ -112,6 +112,11 @@ isp:             # the outside world for the end-to-end tests (the SRWE 15.1.5 d
 dhcp_reservations:   # IOS manual bindings: fill in the real MAC addresses on the lab day
   - {name: ESP32-NODE-1, vlan: 30, ip: 10.20.30.21, mac: 0000.0000.0001}
 
+router_on_a_stick:   # SRWE 4: a side lab with one router and one Layer 2 switch, from the same VLANs and
+                     # addresses; also the fallback when the lab has no Layer 3 switch for D1/D2
+  router: {name: R1-ROAS, model: "1941", trunk: G0/1}
+  switch: {name: S1-ROAS, model: WS-C2960-24TT-L, trunk: G0/1, mgmt_host: 13, ports_per_vlan: 4}
+
 stp:
   mode: rapid-pvst
   root_priority: 24576        # "root primary"

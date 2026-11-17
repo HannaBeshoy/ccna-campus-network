@@ -67,3 +67,7 @@ Wait about a minute for STP and EtherChannel, then:
 | a second PC on A1 Fa0/17 (sensor port) | the port goes err-disabled (port security, shutdown) |
 
 Save the show outputs of Packet Tracer in `captures/pt/` and run `python -m campus verify captures/pt`. Screenshots to `docs/img/`.
+
+## Side lab: router-on-a-stick (module 4, 15 min)
+
+A new file with a 1941 router and a 2960 switch, G0/1 to G0/1. Paste `configs/roas/R1-ROAS.cfg` and `configs/roas/S1-ROAS.cfg` (or the `build/roas` copies with real passwords), put a PC on Fa0/1, Fa0/5 and Fa0/9, and run the tests in [ROUTER_ON_A_STICK.md](ROUTER_ON_A_STICK.md): `show interfaces trunk` on the switch, `show vlans` on the router, DHCP on the PCs, ping and tracert between VLANs (one hop through the router).
