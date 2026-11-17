@@ -4,7 +4,7 @@
 
 **Programming Network Devices 1 course project (Cisco CCNA: Switching, Routing and Wireless Essentials)** · University of Debrecen, Faculty of Informatics · Cisco IOS, Python · **configurations generated and checked offline; Packet Tracer build and lab test on the Cisco switches next**
 
-The network of a small factory test hall, designed the way the SRWE course builds one, module by module: VLANs, trunks, inter-VLAN routing on Layer 3 switches, Rapid PVST+, EtherChannel, DHCPv4 with relays, SLAAC and stateless DHCPv6, HSRP for the default gateway, switch security, a wireless LAN on a controller, and static routing with a floating backup route, tested end to end against a dual-stack server behind an ISP router. The whole network is described in one file, [network.yaml](network.yaml); a Python tool generates the IOS configuration of all five devices from it, checks the design for mistakes, checks every configuration against a security policy, predicts the spanning-tree result, and on the lab day reads the show-command output from the real switches and says what matches the design and what does not.
+The network of a small factory test hall, designed the way the SRWE course builds one, module by module: VLANs, trunks, inter-VLAN routing on Layer 3 switches, Rapid PVST+, EtherChannel, DHCPv4 with relays, SLAAC, stateless and stateful DHCPv6, HSRP for the default gateway, switch security, a wireless LAN on a controller, and static routing with a floating backup route, tested end to end against a dual-stack server behind an ISP router. The whole network is described in one file, [network.yaml](network.yaml); a Python tool generates the IOS configuration of all five devices from it, checks the design for mistakes, checks every configuration against a security policy, predicts the spanning-tree result, and on the lab day reads the show-command output from the real switches and says what matches the design and what does not.
 
 - [x] [network.yaml](network.yaml): 6 VLANs, IPv4 and IPv6 addressing, 5 LACP EtherChannels, HSRP and STP roots per VLAN, DHCP pools and a reservation for the ESP32 sensor node
 - [x] `python -m campus generate`: [configs/](configs/) for R1, ISP, D1, D2, A1, A2, with password placeholders; real passwords come from a local `secrets.yaml` that is never committed
@@ -13,7 +13,7 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus stp`: which Port-channel is root, designated or blocking in every VLAN, before anything is cabled
 - [x] `python -m campus diff` and `verify`: compare a running-config and saved show commands with the design
 - [x] `python -m campus trace` and `paths`: every router's routing table built from the configs, packets followed hop by hop to the dual-stack server behind the ISP, with links or switches taken down ([docs/PATHS.md](docs/PATHS.md)); this found a real gap, fixed with a floating default route between the distribution switches
-- [x] **75 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] **83 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -39,7 +39,7 @@ flowchart TB
 | VLAN | Name | IPv4 | IPv6 | Gateway: HSRP active |
 | ---: | --- | --- | --- | --- |
 | 10 | STAFF | 10.20.10.0/24 | 2001:db8:acad:10::/64 | D1 |
-| 20 | PRODUCTION | 10.20.20.0/24 | 2001:db8:acad:20::/64 | D1 |
+| 20 | PRODUCTION | 10.20.20.0/24 | 2001:db8:acad:20::/64 (stateful DHCPv6) | D1 |
 | 30 | IOT | 10.20.30.0/24 | 2001:db8:acad:30::/64 (SLAAC + stateless DHCPv6) | D2 |
 | 40 | WIFI | 10.20.40.0/24 | 2001:db8:acad:40::/64 | D2 |
 | 99 | MGMT | 10.20.99.0/24 | 2001:db8:acad:99::/64 | D1 |
@@ -56,6 +56,7 @@ The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.
 | Every link between switches is a 2-member LACP EtherChannel | a cable can fail without STP reconverging, and STP sees one link instead of two | 6 |
 | Routing on the Layer 3 switches (SVIs), routed uplinks to R1 | inter-VLAN traffic never leaves the distribution layer; no router-on-a-stick bottleneck | 4, 14 |
 | DHCP server on R1, relays on the SVIs | one place for all pools; the relay fills in giaddr so the server picks the right pool | 7 |
+| All three IPv6 address methods: SLAAC only, stateless DHCPv6 on IOT, stateful DHCPv6 on PRODUCTION | sensors only need a DNS server; test stations get recorded addresses, so a test result can be traced to the station | 8 |
 | R1 reaches the campus by one summary route, with a floating static (AD 10) through D2 | one line instead of five, and an automatic backup when D1's link fails | 15 |
 | Each distribution switch has a floating default route (AD 10) through the other one over VLAN 99 | HSRP does not notice an uplink failure, so the switch stays the gateway; without this route its VLANs lose the outside (found by `campus paths`) | 9, 15 |
 | An ISP router and a dual-stack server outside the campus, with static routes back | the default routes can be tested end to end with ping and tracert in IPv4 and IPv6; NAT comes in the next course | 15, 16 |
@@ -105,7 +106,7 @@ campus/             model and checks, generator, policy lint, running-config dif
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2)
 docs/               project guide (module by module), addressing plan, end-to-end paths, Packet Tracer steps, lab-day test sheet
-tests/              75 tests; fixtures/lab holds hand-written show outputs in IOS format
+tests/              83 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 

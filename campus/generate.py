@@ -105,7 +105,7 @@ def distribution_ctx(net, name, secrets):
             "id": v.id, "name": v.name, "primary": v.primary,
             "ip": v.host(my_host), "mask": v.v4.netmask, "vip": v.host(a["gateway_host"]),
             "ip6": v.host6(my_host), "lla": f"fe80::{my_host}", "g6": 1000 + v.id, "priority": prio,
-            "dhcp": v.dhcp, "dhcpv6_stateless": v.dhcpv6_stateless,
+            "dhcp": v.dhcp, "dhcpv6": v.dhcpv6,
         })
     w = net.raw.get("wlc")
     wctx = None
@@ -184,7 +184,9 @@ def router_ctx(net, name, secrets):
         "interfaces": [{"long": long_name(k), "desc": i["desc"], "v4": ipaddress.ip_interface(i["v4"]),
                         "v6": i["v6"], "lla": i.get("lla"), "peer": i.get("peer")} for k, i in r["interfaces"].items()],
         "pools": pools, "reservations": res, "dns": " ".join(a["dns"]), "dns6": " ".join(a["dns_v6"]),
-        "dhcpv6_pool": "IOT-STATELESS",
+        "dhcpv6_pool": "CAMPUS-DHCPV6",
+        "stateful6": [{"prefix": v.v6, "name": v.name} for v in net.routed_vlans if v.dhcpv6 == "stateful"],
+        "any_dhcpv6": any(v.dhcpv6 for v in net.routed_vlans),
         "default_v4": r["default_route"]["v4"], "default_v6": r["default_route"]["v6"],
         "summary": ipaddress.ip_network(r["campus_summary"]["v4"]), "summary6": r["campus_summary"]["v6"],
         "primary_hop": hop(r["primary_path"], "v4"), "backup_hop": hop(backup, "v4"),

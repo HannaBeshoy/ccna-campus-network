@@ -38,7 +38,8 @@ Record each result (and the command output) in `docs/lab_day.md`.
 | # | Test | How | Expected |
 | ---: | --- | --- | --- |
 | 1 | DHCP | a laptop on A1 Fa0/1, then Fa0/9 | 10.20.10.x, then 10.20.20.x; `show ip dhcp binding` on R1 |
-| 2 | SLAAC + stateless DHCPv6 | the laptop on Fa0/17 (VLAN 30) | a 2001:db8:acad:30:: address and the DNS server 2001:db8:acad:99::53 |
+| 2 | SLAAC + stateless DHCPv6 | the laptop on Fa0/17 (VLAN 30), `ipconfig /all` | a 2001:db8:acad:30:: address and the DNS server 2001:db8:acad:99::53 |
+| 2b | stateful DHCPv6 | the laptop on A2 Fa0/1 (VLAN 20), `ipconfig /all`; on R1 `show ipv6 dhcp binding` | one 2001:db8:acad:20:: address (no second SLAAC address), listed in R1's binding table |
 | 3 | inter-VLAN routing | ping from VLAN 10 to a VLAN 20 host | replies |
 | 4 | EtherChannel | unplug one cable of Po11 during a continuous ping | no loss; `show etherchannel summary` shows one member (D) |
 | 5 | HSRP failover | continuous ping to 10.20.10.1, reload D1 | a few seconds of loss, D2 becomes Active; D1 takes it back after the reload (preempt) |

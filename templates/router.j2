@@ -20,10 +20,18 @@ ip dhcp pool {{ r.name }}
  dns-server {{ dns }}
 {%- endfor %}
 !
+{%- if any_dhcpv6 %}
+! one DHCPv6 pool for the relayed requests: stateless clients only ask for DNS (Information-Request),
+! stateful clients get an address from the prefix whose link-address matches the relay's VLAN
 ipv6 dhcp pool {{ dhcpv6_pool }}
+{%- for p in stateful6 %}
+ address prefix {{ p.prefix }} lifetime 172800 86400
+ link-address {{ p.prefix }}
+{%- endfor %}
  dns-server {{ dns6 }}
  domain-name {{ site.domain }}
 !
+{%- endif %}
 interface Loopback0
  description DHCP server address for the relays
  ip address {{ lo.v4.ip }} 255.255.255.255
@@ -37,7 +45,7 @@ interface {{ i.long }}
 {%- if i.lla %}
  ipv6 address {{ i.lla | upper }} link-local
 {%- endif %}
-{%- if i.peer %}
+{%- if i.peer and any_dhcpv6 %}
  ipv6 dhcp server {{ dhcpv6_pool }}
 {%- endif %}
  no shutdown

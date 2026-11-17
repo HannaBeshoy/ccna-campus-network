@@ -68,6 +68,7 @@ def test_port_ranges():
     (lambda r: r["switches"]["D1"]["uplink"].update(lla="fe80::1"), "both ends of the link use fe80::1"),
     (lambda r: r["routers"]["R1"]["interfaces"]["G0/1"].update(lla="2001:db8::1"), "not a link-local address"),
     (lambda r: r["routers"]["R1"]["host_routes"][0].update(dest6="2001:db8:beef::20"), "not in a campus VLAN"),
+    (lambda r: r["vlans"][20].update(dhcpv6="managed"), "must be stateless or stateful"),
     (lambda r: r["vlans"].update({1: {"name": "default", "v4": "10.20.1.0/24", "v6": "2001:db8:acad:1::/64", "primary": "D1"}}),
      "VLAN 1 must not carry traffic"),
 ])
@@ -356,3 +357,32 @@ def test_ipv6_host_route_to_the_wlc(cfg, net):
 def test_link_local_route_needs_its_interface_up(net):
     t = {(str(p), ad, str(h)) for p, ad, h, _, k in Lab(net, ["R1:G0/1"]).devices["R1"].table() if k == "S"}
     assert ("2001:db8:acad::/56", 10, "fe80::3") in t and ("2001:db8:acad::/56", 1, "fe80::2") not in t
+
+
+# --- the three IPv6 address methods (SRWE module 8) ---------------------------------------------
+@pytest.mark.parametrize("vlan, method", [(10, None), (20, "stateful"), (30, "stateless"), (40, None), (99, None)])
+def test_ipv6_address_method_per_vlan(cfg, vlan, method):
+    for dev in ("D1", "D2"):
+        body = parse(cfg[dev])[f"interface vlan{vlan}"]
+        m_flag, o_flag = "ipv6 nd managed-config-flag" in body, "ipv6 nd other-config-flag" in body
+        no_a = "ipv6 nd prefix default no-autoconfig" in body
+        relay = "ipv6 dhcp relay destination 2001:db8:acad:254::1" in body
+        assert (m_flag, o_flag, no_a, relay) == {None: (False, False, False, False),
+                                                  "stateless": (False, True, False, True),
+                                                  "stateful": (True, False, True, True)}[method], (dev, vlan)
+
+
+def test_dhcpv6_pool_serves_stateful_and_stateless_clients(cfg):
+    r1 = parse(cfg["R1"])
+    pool = r1["ipv6 dhcp pool campus-dhcpv6"]
+    assert "address prefix 2001:db8:acad:20::/64 lifetime 172800 86400" in pool
+    assert "link-address 2001:db8:acad:20::/64" in pool
+    assert "dns-server 2001:db8:acad:99::53" in pool
+    for port in ("gigabitethernet0/1", "gigabitethernet0/2"):          # the relayed requests arrive here
+        assert "ipv6 dhcp server campus-dhcpv6" in r1["interface " + port]
+
+
+def test_no_dhcpv6_pool_when_every_vlan_uses_slaac(net):
+    n = changed(net, lambda r: [v.pop("dhcpv6", None) for v in r["vlans"].values()])
+    r1 = render_all(n)["R1"]
+    assert "ipv6 dhcp" not in r1

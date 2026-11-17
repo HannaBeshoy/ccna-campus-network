@@ -55,7 +55,7 @@ class Vlan:
     v6: ipaddress.IPv6Network = None
     primary: str = None
     dhcp: bool = False
-    dhcpv6_stateless: bool = False
+    dhcpv6: str = None          # None (SLAAC only), 'stateless' or 'stateful'
 
     def host(self, n):
         return self.v4.network_address + n
@@ -104,7 +104,7 @@ def load_from(raw):
             v4=ipaddress.ip_network(v["v4"]) if "v4" in v else None,
             v6=ipaddress.ip_network(v["v6"]) if "v6" in v else None,
             primary=v.get("primary"), dhcp=v.get("dhcp", False),
-            dhcpv6_stateless=v.get("dhcpv6_stateless", False))
+            dhcpv6=v.get("dhcpv6", "stateless" if v.get("dhcpv6_stateless") else None))
     net.routed_vlans = [v for v in net.vlans.values() if v.v4 is not None]
     return net
 
@@ -124,6 +124,10 @@ def validate(net):
             p.append("VLAN 1 must not carry traffic (leave it unused)")
         if v.v4 is not None and v.primary not in dists:
             p.append(f"VLAN {v.id}: primary '{v.primary}' is not a distribution switch")
+        if v.dhcpv6 not in (None, "stateless", "stateful"):
+            p.append(f"VLAN {v.id}: dhcpv6 must be stateless or stateful, not '{v.dhcpv6}'")
+        if v.dhcpv6 and v.v6 is None:
+            p.append(f"VLAN {v.id}: DHCPv6 needs an IPv6 subnet")
         if v.v6 is not None and v.v6.prefixlen != 64:
             p.append(f"VLAN {v.id}: IPv6 subnet {v.v6} must be a /64 (SLAAC needs 64-bit interface IDs)")
     if sum(1 for v in net.vlans.values() if v.v4 is None) != 1:

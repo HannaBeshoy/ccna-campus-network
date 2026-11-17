@@ -9,9 +9,11 @@ site:
   banner: "Authorised access only. HU01 test hall network."
 
 vlans:          # id: name, IPv4 subnet, IPv6 /64, which distribution switch is HSRP active and STP root
+                # dhcpv6: none = SLAAC only (A flag), stateless = SLAAC + DNS from DHCPv6 (O flag),
+                #         stateful = the address itself from DHCPv6 (M flag, A flag off) - SRWE module 8
   10:  {name: STAFF,      v4: 10.20.10.0/24, v6: "2001:db8:acad:10::/64", primary: D1, dhcp: true}
-  20:  {name: PRODUCTION, v4: 10.20.20.0/24, v6: "2001:db8:acad:20::/64", primary: D1, dhcp: true}
-  30:  {name: IOT,        v4: 10.20.30.0/24, v6: "2001:db8:acad:30::/64", primary: D2, dhcp: true, dhcpv6_stateless: true}
+  20:  {name: PRODUCTION, v4: 10.20.20.0/24, v6: "2001:db8:acad:20::/64", primary: D1, dhcp: true, dhcpv6: stateful}
+  30:  {name: IOT,        v4: 10.20.30.0/24, v6: "2001:db8:acad:30::/64", primary: D2, dhcp: true, dhcpv6: stateless}
   40:  {name: WIFI,       v4: 10.20.40.0/24, v6: "2001:db8:acad:40::/64", primary: D2, dhcp: true}
   99:  {name: MGMT,       v4: 10.20.99.0/24, v6: "2001:db8:acad:99::/64", primary: D1, dhcp: false}
   999: {name: PARKING}  # unused ports and the native VLAN of every trunk: carries nothing
