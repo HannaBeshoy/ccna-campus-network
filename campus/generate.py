@@ -196,7 +196,9 @@ def router_ctx(net, name, secrets):
     ctx.update({
         "lo": {"v4": ipaddress.ip_interface(r["loopback"]["v4"]), "v6": r["loopback"]["v6"]},
         "interfaces": [{"long": long_name(k), "desc": i["desc"], "v4": ipaddress.ip_interface(i["v4"]),
-                        "v6": i["v6"], "lla": i.get("lla"), "peer": i.get("peer")} for k, i in r["interfaces"].items()],
+                        "v6": i["v6"], "lla": i.get("lla"), "peer": i.get("peer"),
+                        "dhcp_client": i.get("dhcp_client", False)} for k, i in r["interfaces"].items()],
+        "wan_dhcp": any(i.get("dhcp_client") for i in r["interfaces"].values()),
         "pools": pools, "reservations": res, "dns": " ".join(a["dns"]), "dns6": " ".join(a["dns_v6"]),
         "dhcpv6_pool": "CAMPUS-DHCPV6",
         "stateful6": [{"prefix": v.v6, "name": v.name} for v in net.routed_vlans if v.dhcpv6 == "stateful"],
@@ -231,6 +233,8 @@ def isp_ctx(net, secrets):
         "summary": ipaddress.ip_network(r1.get("site_block", r1["campus_summary"])["v4"]),
         "summary6": r1.get("site_block", r1["campus_summary"])["v6"],
         "r1_v4": ipaddress.ip_interface(r1_out["v4"]).ip,
+        "customer_pool": ({"net": ipaddress.ip_interface(i["uplink"]["v4"]).network,
+                           "gw": ipaddress.ip_interface(i["uplink"]["v4"]).ip} if r1_out.get("dhcp_client") else None),
         "r1_v6": (f"{long_name(i['uplink']['port'])} {r1_out['lla'].upper()}" if r1_out.get("lla")
                   else ipaddress.ip_interface(r1_out["v6"]).ip),
     })

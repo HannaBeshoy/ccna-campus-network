@@ -16,7 +16,8 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus vlsm`: every subnet sized from the hosts it must hold plus growth, a VLSM allocation next to the /24 plan, /30 against /31 links ([docs/VLSM.md](docs/VLSM.md))
 - [x] `python -m campus connectivity`: the ping and tracert test plan with every expected hop in IPv4 and IPv6, the failover paths and extended pings from the routers ([docs/CONNECTIVITY.md](docs/CONNECTIVITY.md)); `verify` checks the saved outputs. The extended ping found that the ISP only routed the VLAN summary back
 - [x] `python -m campus roas`: the router-on-a-stick variant (one router with a subinterface per VLAN, one 2960) from the same model, for the module 4 lab or a lab without Layer 3 switches ([docs/ROUTER_ON_A_STICK.md](docs/ROUTER_ON_A_STICK.md))
-- [x] **139 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] option: R1 takes its outside address by DHCP from the ISP (`ip address dhcp`, default route from the offer with AD 254), checked by the simulator
+- [x] **143 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -65,6 +66,7 @@ The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.
 | R1 reaches the campus by one summary route, with a floating static (AD 10) through D2 | one line instead of five, and an automatic backup when D1's link fails | 15 |
 | Each distribution switch has a floating default route (AD 10) through the other one over VLAN 99 | HSRP does not notice an uplink failure, so the switch stays the gateway; without this route its VLANs lose the outside (found by `campus paths`) | 9, 15 |
 | An ISP router and a dual-stack server outside the campus, with static routes back | the default routes can be tested end to end with ping and tracert in IPv4 and IPv6; NAT comes in the next course | 15, 16 |
+| R1's outside address is static; DHCP from the ISP is one line away (`dhcp_client: true`) | a static address keeps the ISP's route back predictable; the DHCP option keeps the /30, so the only address the ISP can hand out is the same one | 7 |
 | The ISP routes the whole site block (/16, /48) back; R1 sends it to Null0 | the loopback and the links to D1/D2 are outside the VLAN summary (found by an extended ping from Loopback0); the Null0 route keeps traffic for unused addresses from bouncing between R1 and the ISP | 15, ITN 17 |
 | A /32 and a /128 host route to the WLC through D2 | longest match beats the summary, so controller traffic goes straight to the switch it hangs off | 14, 15 |
 | IPv6 static routes are fully specified: exit interface + the neighbour's manual link-local address | a link-local address is unique only on its link; the next hop stays the same if global prefixes are renumbered | 8, 15 |
@@ -117,7 +119,7 @@ campus/             model and checks, generator, policy lint, running-config dif
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2); configs/roas/ the router-on-a-stick variant
 docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, ping/tracert plan, router-on-a-stick sheet, Packet Tracer steps, lab-day test sheet
-tests/              139 tests; fixtures/lab holds hand-written show outputs in IOS format
+tests/              143 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 

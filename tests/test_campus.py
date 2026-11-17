@@ -674,3 +674,46 @@ def test_roas_too_many_ports_per_vlan(net):
 def test_roas_management_address_clash(net):
     bad = changed(net, lambda r: r["router_on_a_stick"]["switch"].update(mgmt_host=11))      # A1's address
     assert any("already an access switch" in x for x in model.validate(bad))
+
+
+# --- R1 as a DHCP client on the ISP link (SRWE 7.3.4) ------------------------------------------
+@pytest.fixture
+def wan_dhcp(net):
+    return changed(net, lambda r: r["routers"]["R1"]["interfaces"]["G0/0"].update(dhcp_client=True))
+
+
+def test_static_outside_address_is_the_default(cfg):
+    r1 = parse(cfg["R1"])
+    assert "ip address 203.0.113.2 255.255.255.252" in r1["interface gigabitethernet0/0"]
+    assert "ip route 0.0.0.0 0.0.0.0 203.0.113.1" in r1[""]
+    assert "ip dhcp pool customer-hu01" not in parse(cfg["ISP"])
+
+
+def test_wan_dhcp_client_configuration(wan_dhcp):
+    assert model.validate(wan_dhcp) == []
+    c = render_all(wan_dhcp)
+    r1, isp = parse(c["R1"]), parse(c["ISP"])
+    assert "ip address dhcp" in r1["interface gigabitethernet0/0"]
+    assert not any(l.startswith("ip route 0.0.0.0 0.0.0.0") for l in r1[""])      # it comes from the offer
+    assert "ip route 10.20.0.0 255.255.128.0 10.20.255.2" in r1[""]                 # the rest stays static
+    assert "network 203.0.113.0 255.255.255.252" in isp["ip dhcp pool customer-hu01"]
+    assert "default-router 203.0.113.1" in isp["ip dhcp pool customer-hu01"]
+    assert "ip dhcp excluded-address 203.0.113.1" in isp[""]
+
+
+def test_wan_dhcp_lease_and_default_route_in_the_simulator(wan_dhcp):
+    import ipaddress
+    lab = Lab(wan_dhcp)
+    assert [str(a) for a in lab.devices["R1"].ifaces["gigabitethernet0/0"]["v4"]] == ["203.0.113.2/30"]
+    prefix, ad, hop, iface, kind = lab.devices["R1"].lookup(ipaddress.ip_address("64.100.1.10"))
+    assert (str(prefix), ad, str(hop)) == ("0.0.0.0/0", 254, "203.0.113.1")
+    for v in wan_dhcp.routed_vlans:
+        ok1, ok2, _, _ = round_trip(wan_dhcp, v.id, 4)
+        assert ok1 and ok2
+
+
+def test_wan_dhcp_needs_a_30(net):
+    def edit(r):
+        r["routers"]["R1"]["interfaces"]["G0/0"].update(dhcp_client=True, v4="203.0.113.2/29")
+        r["isp"]["uplink"]["v4"] = "203.0.113.1/29"
+    assert any("use a /30" in x for x in model.validate(changed(net, edit)))

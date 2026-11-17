@@ -1,6 +1,14 @@
 {% include "_base.j2" %}
 ipv6 unicast-routing
 !
+{%- if customer_pool %}
+! the customer's router takes its outside address by DHCP; the /30 has one address left to give
+ip dhcp excluded-address {{ customer_pool.gw }}
+ip dhcp pool CUSTOMER-HU01
+ network {{ customer_pool.net.network_address }} {{ customer_pool.net.netmask }}
+ default-router {{ customer_pool.gw }}
+!
+{%- endif %}
 {%- for i in interfaces %}
 interface {{ i.long }}
  description {{ i.desc }}
