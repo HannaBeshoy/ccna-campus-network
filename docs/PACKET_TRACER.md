@@ -71,3 +71,7 @@ Save the show outputs of Packet Tracer in `captures/pt/` and run `python -m camp
 ## Side lab: router-on-a-stick (module 4, 15 min)
 
 A new file with a 1941 router and a 2960 switch, G0/1 to G0/1. Paste `configs/roas/R1-ROAS.cfg` and `configs/roas/S1-ROAS.cfg` (or the `build/roas` copies with real passwords), put a PC on Fa0/1, Fa0/5 and Fa0/9, and run the tests in [ROUTER_ON_A_STICK.md](ROUTER_ON_A_STICK.md): `show interfaces trunk` on the switch, `show vlans` on the router, DHCP on the PCs, ping and tracert between VLANs (one hop through the router).
+
+## Optional: R1 as a DHCP client of the ISP (module 7)
+
+Set `dhcp_client: true` on R1's G0/0 in `network.yaml`, run `python -m campus generate --out build`, and paste the new `build/R1.cfg` and `build/ISP.cfg`. `show dhcp lease` on R1 shows 203.0.113.2 leased from 203.0.113.1, `show ip route` shows `S* 0.0.0.0/0 [254/0] via 203.0.113.1`, and the pings to the server still work.

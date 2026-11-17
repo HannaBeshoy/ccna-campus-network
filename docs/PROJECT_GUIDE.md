@@ -10,7 +10,7 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 | 4 | inter-VLAN routing | SVIs on D1/D2 with `ip routing`; routed uplinks (`no switchport`) to R1; the router-on-a-stick variant from `python -m campus roas` |
 | 5 | STP | `spanning-tree mode rapid-pvst`, priorities per VLAN; `python -m campus stp` |
 | 6 | EtherChannel | 5 LACP bundles, `channel-group N mode active` |
-| 7 | DHCPv4 | pools on R1, `ip helper-address` on the SVIs, a manual binding for the ESP32 |
+| 7 | DHCPv4 | pools on R1, `ip helper-address` on the SVIs, a manual binding for the ESP32; optionally R1 as a DHCP client of the ISP |
 | 8 | SLAAC and DHCPv6 | all three methods: SLAAC only (VLANs 10, 40, 99), stateless DHCPv6 (VLAN 30, O flag), stateful DHCPv6 (VLAN 20, M flag, A flag off); relays to R1; manual link-local addresses |
 | 9 | FHRP, HSRP | HSRP version 2 per VLAN, IPv4 and IPv6 groups, priority 110 + preempt on the primary |
 | 10 | LAN security concepts | the threats the access-port settings answer |
@@ -60,6 +60,8 @@ Each pair of switches is connected by two cables bundled with LACP (`channel-gro
 ## 7. DHCPv4 (module 7)
 
 R1 is the DHCP server for VLANs 10, 20, 30, 40 and 50: one pool each, with `.1` to `.20` excluded (gateways, switches, printers). The clients are not on R1's subnets, so each SVI has `ip helper-address 10.20.254.1`: the switch turns the client's broadcast into a unicast to R1 and writes its own address (giaddr) into it, which is how R1 knows which pool to use. The ESP32 sensor node gets a fixed address from a manual binding (`host 10.20.30.21` + `hardware-address`; its real MAC goes into `network.yaml` on the lab day).
+
+**R1 as a DHCP client (7.3.4).** Setting `dhcp_client: true` on R1's G0/0 in `network.yaml` turns the outside interface into `ip address dhcp`, the way a small office router gets its address from a provider. The generated ISP then has a pool for the link (`ip dhcp pool CUSTOMER-HU01`, its own address excluded), and R1 loses its static IPv4 default route: the offer's default router (option 3) is installed as a static default with administrative distance 254, so any static default would win over it. The uplink must stay a /30: with the ISP's address excluded there is exactly one address to give, so R1 always gets 203.0.113.2 and the ISP's route back to the site still points at the right address (`check` refuses a larger subnet). `show dhcp lease` on R1 shows the lease. The repository keeps the static address, which is what the rest of the design and the tests assume.
 
 ## 8. IPv6: SLAAC, stateless and stateful DHCPv6 (module 8)
 
