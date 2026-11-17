@@ -28,12 +28,26 @@ class Device:
         self.name = name
         self.ifaces = {}      # interface -> {"v4": [IPv4Interface], "v6": [IPv6Interface], "up": bool}
         self.static = []      # (prefix, next hop or None, exit interface or None, AD)
+        self.pools = []       # DHCPv4 pools this device serves: (network, default router)
+        self.excluded = set()
         s = parse(text)
+        for key, body in s.items():
+            if key.startswith("ip dhcp pool "):
+                net_ = next((l.split()[1:3] for l in body if l.startswith("network ")), None)
+                gw = next((l.split()[1] for l in body if l.startswith("default-router ")), None)
+                if net_ and gw:
+                    self.pools.append((ipaddress.ip_network("/".join(net_)), ipaddress.ip_address(gw)))
+        for line in s[""]:
+            m = re.match(r"ip dhcp excluded-address (\S+)(?: (\S+))?$", line)
+            if m:
+                lo = ipaddress.ip_address(m.group(1))
+                hi = ipaddress.ip_address(m.group(2) or m.group(1))
+                self.excluded |= {ipaddress.ip_address(n) for n in range(int(lo), int(hi) + 1)}
         for key, body in s.items():
             if not key.startswith("interface "):
                 continue
             name_ = key[len("interface "):]
-            info = {"v4": [], "v6": [], "up": "shutdown" not in body}
+            info = {"v4": [], "v6": [], "up": "shutdown" not in body, "dhcp": "ip address dhcp" in body}
             for line in body:
                 m = re.match(r"ip address (\S+) (\S+)$", line)
                 if m:
@@ -112,8 +126,34 @@ class Lab:
         self.devices = {n: Device(n, t) for n, t in cfgs.items()
                         if n in net.raw["routers"] or n in net.dist() or n == net.raw.get("isp", {}).get("name")}
         self.dead = set()
+        self._dhcp_leases()
         for item in down:
             self.take_down(item)
+
+    def _dhcp_leases(self):
+        """An interface with "ip address dhcp" gets the first free address of the pool served by
+        the device at the other end of its link (found through the link's IPv6 subnet), and the
+        pool's default router as a default route with administrative distance 254, as IOS does."""
+        for name, d in self.devices.items():
+            for ifn, i in d.ifaces.items():
+                if not i.get("dhcp"):
+                    continue
+                link6 = {a.network for a in i["v6"]}
+                for other in self.devices.values():
+                    if other is d:
+                        continue
+                    for oi in other.ifaces.values():
+                        if not link6 & {a.network for a in oi["v6"]}:
+                            continue
+                        for pool, gw in other.pools:
+                            if not any(a.network == pool for a in oi["v4"]):
+                                continue
+                            taken = other.excluded | {a.ip for o in self.devices.values()
+                                                      for x in o.ifaces.values() for a in x["v4"]}
+                            lease = next((h for h in pool.hosts() if h not in taken), None)
+                            if lease:
+                                i["v4"].append(ipaddress.ip_interface(f"{lease}/{pool.prefixlen}"))
+                                d.static.append((ipaddress.ip_network("0.0.0.0/0"), gw, None, 254))
 
     def take_down(self, item):
         if ":" not in item:

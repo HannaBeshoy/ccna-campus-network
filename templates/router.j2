@@ -40,7 +40,11 @@ interface Loopback0
 {%- for i in interfaces %}
 interface {{ i.long }}
  description {{ i.desc }}
+{%- if i.dhcp_client %}
+ ip address dhcp
+{%- else %}
  ip address {{ i.v4.ip }} {{ i.v4.netmask }}
+{%- endif %}
  ipv6 address {{ i.v6 }}
 {%- if i.lla %}
  ipv6 address {{ i.lla | upper }} link-local
@@ -51,7 +55,11 @@ interface {{ i.long }}
  no shutdown
 !
 {%- endfor %}
+{%- if wan_dhcp %}
+! the IPv4 default route comes from the ISP's DHCP offer (option 3), installed with AD 254
+{%- else %}
 ip route 0.0.0.0 0.0.0.0 {{ default_v4 }}
+{%- endif %}
 ip route {{ summary.network_address }} {{ summary.netmask }} {{ primary_hop }}
 ip route {{ summary.network_address }} {{ summary.netmask }} {{ backup_hop }} {{ floating_ad }}
 {%- for h in host_routes %}

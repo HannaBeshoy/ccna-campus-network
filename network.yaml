@@ -38,7 +38,9 @@ routers:
     model: "2911"
     loopback: {v4: 10.20.254.1/32, v6: "2001:db8:acad:254::1/128"}
     interfaces:
-      G0/0: {desc: "ISP uplink", v4: 203.0.113.2/30, v6: "2001:db8:f::2/64", lla: "fe80::1"}
+      G0/0: {desc: "ISP uplink", v4: 203.0.113.2/30, v6: "2001:db8:f::2/64", lla: "fe80::1", dhcp_client: false}
+                             # dhcp_client: true = "ip address dhcp" (SRWE 7.3.4): the ISP's pool hands out v4
+                             # and the default route; the /30 leaves it only this one address to give
       G0/1: {desc: "to D1 G1/0/24", v4: 10.20.255.1/30, v6: "2001:db8:acad:ff01::1/64", lla: "fe80::1", peer: D1}
       G0/2: {desc: "to D2 G1/0/24", v4: 10.20.255.5/30, v6: "2001:db8:acad:ff02::1/64", lla: "fe80::1", peer: D2}
     default_route: {v4: 203.0.113.1, v6: "2001:db8:f::1"}

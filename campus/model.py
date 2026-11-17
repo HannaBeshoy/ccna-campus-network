@@ -305,6 +305,13 @@ def validate(net):
             p.append("the ISP uplink and R1's outside interface are not in the same IPv6 subnet")
         if str(up4.ip) != r1["default_route"]["v4"] or up6.ip != ipaddress.ip_address(r1["default_route"]["v6"]):
             p.append("R1's default route does not point at the ISP")
+        if r1_out is not None and r1_out.get("dhcp_client"):
+            free = [h for h in up4.network.hosts() if h != up4.ip]
+            mine = ipaddress.ip_interface(r1_out["v4"]).ip
+            if free != [mine]:
+                p.append(f"R1 takes its outside address by DHCP, but {up4.network} leaves the ISP's pool "
+                         f"{len(free)} addresses to give: the ISP's route back to {mine} would break if the "
+                         f"lease changed (use a /30)")
         lan4, lan6 = ipaddress.ip_interface(isp["server_lan"]["v4"]), ipaddress.ip_interface(isp["server_lan"]["v6"])
         srv4, srv6 = ipaddress.ip_address(isp["server"]["v4"]), ipaddress.ip_address(isp["server"]["v6"])
         if srv4 not in lan4.network or srv4 in (lan4.ip, lan4.network.network_address, lan4.network.broadcast_address):
