@@ -203,6 +203,17 @@ def validate(net):
     for v in net.routed_vlans:
         if not v.v4.subnet_of(summ):
             p.append(f"VLAN {v.id} {v.v4} is outside R1's campus route {summ}")
+    sb = r1.get("site_block")
+    if sb:                     # the ISP routes it back: every inside address must be in it
+        inside = [("campus summary", r1["campus_summary"]["v4"], sb["v4"]),
+                  ("campus summary", r1["campus_summary"]["v6"], sb["v6"]),
+                  ("Loopback0", r1["loopback"]["v4"], sb["v4"]), ("Loopback0", r1["loopback"]["v6"], sb["v6"])]
+        for ifn, i in r1["interfaces"].items():
+            if "peer" in i:
+                inside += [(f"R1 {ifn}", i["v4"], sb["v4"]), (f"R1 {ifn}", i["v6"], sb["v6"])]
+        for what, addr, block in inside:
+            if not ipaddress.ip_interface(addr).network.subnet_of(ipaddress.ip_network(block)):
+                p.append(f"{what} {addr} is outside the site block {block}: replies to it would not come back")
 
     # ports: every access port in an existing VLAN, no port used twice
     for sw in accs:

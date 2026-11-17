@@ -131,10 +131,34 @@ def test_router_routes_and_pools(cfg):
 
 def test_isp_routes_back_to_the_campus(cfg):
     isp = parse(cfg["ISP"])
-    assert "ip route 10.20.0.0 255.255.128.0 203.0.113.2" in isp[""]
-    assert "ipv6 route 2001:db8:acad::/56 gigabitethernet0/0 fe80::1" in isp[""]
+    assert "ip route 10.20.0.0 255.255.0.0 203.0.113.2" in isp[""]          # the whole site block
+    assert "ipv6 route 2001:db8:acad::/48 gigabitethernet0/0 fe80::1" in isp[""]
     assert "ip address 64.100.1.1 255.255.255.0" in isp["interface gigabitethernet0/1"]
     assert "ipv6 address 2001:db8:100:1::1/64" in isp["interface gigabitethernet0/1"]
+
+
+def test_r1_discards_the_unused_part_of_the_site_block(cfg):
+    r1 = parse(cfg["R1"])
+    assert "ip route 10.20.0.0 255.255.0.0 null0" in r1[""]
+    assert "ipv6 route 2001:db8:acad::/48 null0" in r1[""]
+
+
+def test_unused_site_address_is_discarded_not_looped(net):
+    ok, hops = Lab(net).trace("server", "10.20.200.1")
+    assert not ok and "Null0" in hops[-1] and "loop" not in hops[-1]
+    ok, hops = Lab(net, ["D1", "D2"]).trace("server", "10.20.10.50")        # no way into the campus
+    assert not ok and hops[-1].startswith("R1:") and "Null0" in hops[-1]
+
+
+def test_r1_loopback_reaches_the_server_with_extended_ping(net):
+    lab = Lab(net)
+    assert lab.ping("R1", "10.20.254.1", "64.100.1.10")[0]
+    assert lab.ping("R1", "2001:db8:acad:254::1", "2001:db8:100:1::a")[0]
+
+
+def test_loopback_outside_the_site_block_is_refused(net):
+    bad = changed(net, lambda r: r["routers"]["R1"].update(loopback={"v4": "10.30.0.1/32", "v6": "2001:db8:acad:254::1/128"}))
+    assert any("Loopback0" in x and "site block" in x for x in model.validate(bad))
 
 
 def test_etherchannel_members_match_on_both_ends(cfg, net):

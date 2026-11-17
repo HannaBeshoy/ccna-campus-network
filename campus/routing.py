@@ -44,6 +44,11 @@ class Device:
             if info["v4"] or info["v6"]:
                 self.ifaces[name_] = info
         for line in s[""]:
+            m = re.match(r"ip route (\S+) (\S+) null0(?: (\d+))?$", line, re.I)
+            if m:                                    # discard route: matches, then drops
+                self.static.append((ipaddress.ip_network(f"{m.group(1)}/{m.group(2)}"), None, "null0",
+                                    int(m.group(3) or 1)))
+                continue
             m = re.match(r"ip route (\S+) (\S+) (\S+)(?: (\d+))?$", line)
             if m:
                 self.static.append((ipaddress.ip_network(f"{m.group(1)}/{m.group(2)}"),
@@ -51,6 +56,9 @@ class Device:
             if line.startswith("ipv6 route "):
                 t = line.split()[2:]                 # prefix [exit interface] next hop [AD]
                 ad = int(t.pop()) if t[-1].isdigit() else 1
+                if t[-1].lower() == "null0":
+                    self.static.append((ipaddress.ip_network(t[0]), None, "null0", ad))
+                    continue
                 exit_if = ifname(t[1]).lower() if len(t) == 3 else None
                 self.static.append((ipaddress.ip_network(t[0]), ipaddress.ip_address(t[-1]), exit_if, ad))
 
@@ -66,10 +74,14 @@ class Device:
         return any(i["up"] and any(a.ip == ip for a in i["v4"] + i["v6"]) for i in self.ifaces.values())
 
     def table(self):
-        """[(prefix, AD, next hop, interface, kind)] - what "show ip route" would list."""
+        """[(prefix, AD, next hop, interface, kind)] - what "show ip route" would list
+        (kind C connected, S static, N static to Null0)."""
         conn = self.connected()
         rows = [(n, 0, None, i, "C") for n, i in conn]
         for prefix, hop, exit_if, ad in self.static:
+            if exit_if == "null0":
+                rows.append((prefix, ad, None, "Null0", "N"))
+                continue
             if hop.is_link_local:
                 ok = exit_if is not None and self.ifaces.get(exit_if, {}).get("up", False)
                 via_if = exit_if
@@ -169,12 +181,47 @@ class Lab:
 
     # --- forwarding --------------------------------------------------------------------------
     def trace(self, src, dst, family=4):
-        """(delivered, [hop lines]) for a packet from src to dst ('vlan10', 'server' or an address)."""
-        _, first, label = self.endpoint(src, family)
+        """(delivered, [hop lines]) for a packet from src to dst ('vlan10', 'server' or an address).
+        Afterwards self.path lists (device, address the packet arrived on) for every hop."""
+        src_ip, first, label = self.endpoint(src, family)
         dst_ip = self.endpoint(dst, family)[0] if not _is_ip(dst) else ipaddress.ip_address(dst)
         hops = [f"{label} -> gateway {first}" if first else f"{label}: no gateway is up"]
-        here, seen = first, set()
-        while here is not None and len(hops) < MAX_HOPS:
+        self.path = []
+        if first is None:
+            return False, hops
+        return self._forward(first, self._address_on(first, src_ip), dst_ip, hops)
+
+    def ping(self, device, source, dst):
+        """Extended ping from a router or switch with a source address: (ok, there, back)."""
+        src_ip, dst_ip = ipaddress.ip_address(source), ipaddress.ip_address(dst)
+        if not self.devices[device].owns(src_ip):
+            raise ValueError(f"{device} has no interface with {src_ip}")
+        ok1, there = self._forward(device, None, dst_ip, [f"{device} (source {src_ip}) -> {dst_ip}"])
+        back_from = self._first_hop_of(dst_ip)
+        if back_from is None:
+            return False, there, [f"{dst_ip}: no device answers"]
+        ok2, back = self._forward(back_from, None, src_ip, [f"{dst_ip} -> {src_ip}"])
+        return ok1 and ok2, there, back
+
+    def _first_hop_of(self, ip):
+        """The device that sends a reply from ip: its owner, the VLAN's gateway or the server's router."""
+        owner = next((n for n, d in self.devices.items() if d.owns(ip)), None)
+        if owner:
+            return owner
+        return self.endpoint(str(ip), ip.version)[1]
+
+    def _address_on(self, dev, ip):
+        """dev's own address in the subnet of ip (the interface a packet from ip arrives on)."""
+        for i in self.devices[dev].ifaces.values():
+            for a in i["v4"] + i["v6"]:
+                if a.version == ip.version and ip in a.network and i["up"]:
+                    return a.ip
+        return None
+
+    def _forward(self, here, came_in, dst_ip, hops):
+        seen = set()
+        self.path = [(here, came_in)]
+        while len(hops) < MAX_HOPS:
             d = self.devices[here]
             if d.owns(dst_ip):
                 hops.append(f"{here}: the destination is this device")
@@ -188,10 +235,14 @@ class Lab:
                 hops.append(f"{here}: no route to {dst_ip} - dropped")
                 return False, hops
             prefix, ad, hop, iface, kind = r
+            if kind == "N":
+                hops.append(f"{here}: {prefix} [{ad}/0] to Null0 - discarded (nothing in the site has {dst_ip})")
+                return False, hops
             if kind == "C":
                 owner = next((n for n, o in self.devices.items() if n != here and o.owns(dst_ip)), None)
                 if owner:
                     hops.append(f"{here}: {prefix} connected ({iface}) -> {owner}")
+                    self.path.append((owner, dst_ip))
                     here = owner
                     continue
                 if self.is_host(dst_ip):
@@ -200,12 +251,16 @@ class Lab:
                 hops.append(f"{here}: {prefix} connected, but nothing answers at {dst_ip}")
                 return False, hops
             nxt = next((n for n, o in self.devices.items() if n != here and o.owns(hop)), None)
+            arrive = hop
             if hop.is_link_local:
                 nxt = self._link_local_neighbour(here, iface)
+                mine = self.devices[here].ifaces[iface]["v6"]
+                arrive = self._address_on(nxt, mine[0].ip) if nxt and mine else None
             hops.append(f"{here}: {prefix} [{ad}/0] via {hop} ({iface}) -> {nxt}")
             if nxt is None or nxt in self.dead:
                 hops.append(f"{here}: next hop {hop} does not answer - dropped")
                 return False, hops
+            self.path.append((nxt, arrive))
             here = nxt
         return False, hops + ["too many hops"]
 

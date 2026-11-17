@@ -7,7 +7,7 @@ About 1.5 hours. The result, `packet-tracer/campus.pkt`, goes into the repositor
 | Name | Packet Tracer device | Notes |
 | --- | --- | --- |
 | R1 | 2911 | three Gigabit ports G0/0-G0/2 (the ISR4321 and ISR4331 in Packet Tracer have only two) |
-| ISP | 2911 | G0/0 to R1, G0/1 to the server LAN; paste `build/ISP.cfg` (routes back to the campus summaries, since there is no NAT yet) |
+| ISP | 2911 | G0/0 to R1, G0/1 to the server LAN; paste `build/ISP.cfg` (routes the site's whole block back to R1, since there is no NAT yet) |
 | Internet | Cloud-PT (optional) | only a picture between R1 and the ISP, as in the course activities; a straight cable R1 G0/0 to ISP G0/0 works the same |
 | Dual Stack Server | Server-PT | 64.100.1.10/24, gateway 64.100.1.1; 2001:db8:100:1::a/64, gateway 2001:db8:100:1::1 (Desktop, IP Configuration) |
 | D1, D2 | 3650-24PS | add the power supply in the Physical tab (AC-POWER-SUPPLY), or the switch stays off |

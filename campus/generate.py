@@ -203,6 +203,8 @@ def router_ctx(net, name, secrets):
         "any_dhcpv6": any(v.dhcpv6 for v in net.routed_vlans),
         "default_v4": r["default_route"]["v4"], "default_v6": r["default_route"]["v6"],
         "summary": ipaddress.ip_network(r["campus_summary"]["v4"]), "summary6": r["campus_summary"]["v6"],
+        "site_block": ipaddress.ip_network(r["site_block"]["v4"]) if "site_block" in r else None,
+        "site_block6": r.get("site_block", {}).get("v6"),
         "primary_hop": hop(r["primary_path"], "v4"), "backup_hop": hop(backup, "v4"),
         "primary_hop6": hop6(r["primary_path"]), "backup_hop6": hop6(backup),
         "floating_ad": r["floating_ad"],
@@ -226,7 +228,8 @@ def isp_ctx(net, secrets):
             {"long": long_name(i["server_lan"]["port"]), "desc": f"{i['server']['name']} LAN",
              "v4": ipaddress.ip_interface(i["server_lan"]["v4"]), "v6": i["server_lan"]["v6"],
              "lla": i["server_lan"].get("lla")}],
-        "summary": ipaddress.ip_network(r1["campus_summary"]["v4"]), "summary6": r1["campus_summary"]["v6"],
+        "summary": ipaddress.ip_network(r1.get("site_block", r1["campus_summary"])["v4"]),
+        "summary6": r1.get("site_block", r1["campus_summary"])["v6"],
         "r1_v4": ipaddress.ip_interface(r1_out["v4"]).ip,
         "r1_v6": (f"{long_name(i['uplink']['port'])} {r1_out['lla'].upper()}" if r1_out.get("lla")
                   else ipaddress.ip_interface(r1_out["v6"]).ip),

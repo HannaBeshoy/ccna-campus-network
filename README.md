@@ -21,7 +21,7 @@ The network of a small factory test hall, designed the way the SRWE course build
 
 ```mermaid
 flowchart TB
-    SRV[Dual Stack Server<br/>64.100.1.10<br/>2001:db8:100:1::a] --- ISP[ISP router<br/>routes back to the campus]
+    SRV[Dual Stack Server<br/>64.100.1.10<br/>2001:db8:100:1::a] --- ISP[ISP router<br/>routes the site block back]
     ISP ---|"203.0.113.0/30<br/>2001:db8:f::/64"| R1[R1 Cisco 2911<br/>DHCP server, static routes]
     R1 ---|"10.20.255.0/30"| D1[D1 Catalyst 3650<br/>HSRP active VLAN 10, 20, 99<br/>STP root VLAN 10, 20, 99]
     R1 ---|"10.20.255.4/30"| D2[D2 Catalyst 3650<br/>HSRP active VLAN 30, 40, 50<br/>STP root VLAN 30, 40, 50]
@@ -63,6 +63,7 @@ The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.
 | R1 reaches the campus by one summary route, with a floating static (AD 10) through D2 | one line instead of five, and an automatic backup when D1's link fails | 15 |
 | Each distribution switch has a floating default route (AD 10) through the other one over VLAN 99 | HSRP does not notice an uplink failure, so the switch stays the gateway; without this route its VLANs lose the outside (found by `campus paths`) | 9, 15 |
 | An ISP router and a dual-stack server outside the campus, with static routes back | the default routes can be tested end to end with ping and tracert in IPv4 and IPv6; NAT comes in the next course | 15, 16 |
+| The ISP routes the whole site block (/16, /48) back; R1 sends it to Null0 | the loopback and the links to D1/D2 are outside the VLAN summary (found by an extended ping from Loopback0); the Null0 route keeps traffic for unused addresses from bouncing between R1 and the ISP | 15, ITN 17 |
 | A /32 and a /128 host route to the WLC through D2 | longest match beats the summary, so controller traffic goes straight to the switch it hangs off | 14, 15 |
 | IPv6 static routes are fully specified: exit interface + the neighbour's manual link-local address | a link-local address is unique only on its link; the next hop stays the same if global prefixes are renumbered | 8, 15 |
 | A voice VLAN on the staff desk ports, CoS trusted, port security maximum 3 | one cable for phone and PC; speech keeps its priority; the phone's MAC appears in both VLANs | 3, 11 |

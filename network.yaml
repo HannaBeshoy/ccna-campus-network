@@ -43,6 +43,8 @@ routers:
       G0/2: {desc: "to D2 G1/0/24", v4: 10.20.255.5/30, v6: "2001:db8:acad:ff02::1/64", lla: "fe80::1", peer: D2}
     default_route: {v4: 203.0.113.1, v6: "2001:db8:f::1"}
     campus_summary: {v4: 10.20.0.0/17, v6: "2001:db8:acad::/56"}
+    site_block: {v4: 10.20.0.0/16, v6: "2001:db8:acad::/48"}   # all HU01 owns, VLANs + links + loopback:
+                             # the ISP routes it to R1; R1 sends what no longer route covers to Null0
     primary_path: D1         # the floating static route through D2 takes over when D1's link fails
     floating_ad: 10
     host_routes:             # longest match: this /32 (and /128) beats the campus summary and goes straight to D2

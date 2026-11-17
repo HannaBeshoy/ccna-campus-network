@@ -12,7 +12,7 @@ interface {{ i.long }}
  no shutdown
 !
 {%- endfor %}
-! no NAT on the customer side yet (ENSA): routes back to the customer's summaries
+! no NAT on the customer side yet (ENSA): the customer's whole block is routed back to R1
 ip route {{ summary.network_address }} {{ summary.netmask }} {{ r1_v4 }}
 ipv6 route {{ summary6 }} {{ r1_v6 }}
 !
