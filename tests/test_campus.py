@@ -65,6 +65,9 @@ def test_port_ranges():
     (lambda r: r["isp"]["server"].update(v4="64.100.1.1"), "not a usable host"),
     (lambda r: r["isp"]["server_lan"].update(v4="10.20.100.1/24"), "overlaps the campus"),
     (lambda r: r["routers"]["R1"]["default_route"].update(v4="203.0.113.3"), "does not point at the ISP"),
+    (lambda r: r["switches"]["D1"]["uplink"].update(lla="fe80::1"), "both ends of the link use fe80::1"),
+    (lambda r: r["routers"]["R1"]["interfaces"]["G0/1"].update(lla="2001:db8::1"), "not a link-local address"),
+    (lambda r: r["routers"]["R1"]["host_routes"][0].update(dest6="2001:db8:beef::20"), "not in a campus VLAN"),
     (lambda r: r["vlans"].update({1: {"name": "default", "v4": "10.20.1.0/24", "v6": "2001:db8:acad:1::/64", "primary": "D1"}}),
      "VLAN 1 must not carry traffic"),
 ])
@@ -113,7 +116,7 @@ def test_router_routes_and_pools(cfg):
     assert "ip route 10.20.0.0 255.255.128.0 10.20.255.2" in g
     assert "ip route 10.20.0.0 255.255.128.0 10.20.255.6 10" in g        # floating static
     assert "ip route 10.20.99.20 255.255.255.255 10.20.255.6" in g       # host route
-    assert "ipv6 route 2001:db8:acad::/56 2001:db8:acad:ff02::2 10" in g
+    assert "ipv6 route 2001:db8:acad::/56 gigabitethernet0/2 fe80::3 10" in g   # fully specified
     assert "ip dhcp excluded-address 10.20.30.1 10.20.30.20" in g
     assert r1["ip dhcp pool iot"] == ["network 10.20.30.0 255.255.255.0", "default-router 10.20.30.1",
                                       "dns-server 10.20.99.53", "domain-name hu01.test"]
@@ -123,7 +126,7 @@ def test_router_routes_and_pools(cfg):
 def test_isp_routes_back_to_the_campus(cfg):
     isp = parse(cfg["ISP"])
     assert "ip route 10.20.0.0 255.255.128.0 203.0.113.2" in isp[""]
-    assert "ipv6 route 2001:db8:acad::/56 2001:db8:f::2" in isp[""]
+    assert "ipv6 route 2001:db8:acad::/56 gigabitethernet0/0 fe80::1" in isp[""]
     assert "ip address 64.100.1.1 255.255.255.0" in isp["interface gigabitethernet0/1"]
     assert "ipv6 address 2001:db8:100:1::1/64" in isp["interface gigabitethernet0/1"]
 
@@ -265,13 +268,13 @@ def test_routing_table_of_r1(net):
     assert ("0.0.0.0/0", 1, "203.0.113.1") in t
     assert ("10.20.0.0/17", 1, "10.20.255.2") in t
     assert not any(p == "10.20.0.0/17" and ad == 10 for p, ad, _ in t)       # the floating route waits
-    assert ("2001:db8:acad::/56", 1, "2001:db8:acad:ff01::2") in t
+    assert ("2001:db8:acad::/56", 1, "fe80::2") in t
 
 
 def test_floating_route_replaces_the_primary_when_its_link_goes_down(net):
     t = {(str(p), ad, str(h) if h else None) for p, ad, h, _, _ in Lab(net, ["R1:G0/1"]).devices["R1"].table()}
     assert ("10.20.0.0/17", 10, "10.20.255.6") in t
-    assert ("2001:db8:acad::/56", 10, "2001:db8:acad:ff02::2") in t
+    assert ("2001:db8:acad::/56", 10, "fe80::3") in t
     assert not any(p == "10.20.255.0/30" for p, _, _ in t)                   # the connected route is gone too
 
 
@@ -325,3 +328,31 @@ def test_without_the_backup_default_an_uplink_failure_blackholes(net):
 def test_backup_default_route_in_the_configs(cfg):
     assert "ip route 0.0.0.0 0.0.0.0 10.20.99.3 10" in parse(cfg["D1"])[""]
     assert "ipv6 route ::/0 2001:db8:acad:99::2 10" in parse(cfg["D2"])[""]
+
+
+# --- IPv6 link-local addresses and fully specified routes -----------------------------------------
+def test_link_local_addresses_on_every_routed_link(cfg):
+    r1, d1, d2, isp = (parse(cfg[n]) for n in ("R1", "D1", "D2", "ISP"))
+    for port in ("gigabitethernet0/0", "gigabitethernet0/1", "gigabitethernet0/2"):
+        assert "ipv6 address fe80::1 link-local" in r1["interface " + port]
+    assert "ipv6 address fe80::2 link-local" in d1["interface gigabitethernet1/0/24"]
+    assert "ipv6 address fe80::3 link-local" in d2["interface gigabitethernet1/0/24"]
+    assert "ipv6 address fe80::a link-local" in isp["interface gigabitethernet0/0"]
+
+
+def test_every_ipv6_route_to_a_link_local_hop_names_its_interface(cfg):
+    for name, text in cfg.items():
+        for line in parse(text)[""]:
+            if line.startswith("ipv6 route") and "fe80::" in line:
+                assert len(line.split()) >= 5 and line.split()[3].startswith("gigabitethernet"), (name, line)
+
+
+def test_ipv6_host_route_to_the_wlc(cfg, net):
+    assert "ipv6 route 2001:db8:acad:99::20/128 gigabitethernet0/2 fe80::3" in parse(cfg["R1"])[""]
+    ok, hops = Lab(net).trace("server", "2001:db8:acad:99::20", 6)
+    assert ok and "2001:db8:acad:99::20/128 [1/0] via fe80::3 (gigabitethernet0/2) -> D2" in " ".join(hops)
+
+
+def test_link_local_route_needs_its_interface_up(net):
+    t = {(str(p), ad, str(h)) for p, ad, h, _, k in Lab(net, ["R1:G0/1"]).devices["R1"].table() if k == "S"}
+    assert ("2001:db8:acad::/56", 10, "fe80::3") in t and ("2001:db8:acad::/56", 1, "fe80::2") not in t

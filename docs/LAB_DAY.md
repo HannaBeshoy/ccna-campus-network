@@ -20,7 +20,7 @@ Save the output of these commands into `captures/<device>_<command>.txt` (spaces
 | --- | --- |
 | A1, A2 | `show vlan brief`, `show etherchannel summary`, `show spanning-tree`, `show port-security`, `show ip dhcp snooping binding` |
 | D1, D2 | `show etherchannel summary`, `show standby brief`, `show spanning-tree`, `show ip route` |
-| R1 | `show ip route`, `show ipv6 route`, `show ip dhcp binding` |
+| R1 | `show ip route`, `show ipv6 route` (the /56 and ::/0 via FE80:: addresses with their interfaces), `show ipv6 interface brief`, `show ip dhcp binding` |
 | each | `show running-config` (as `<device>_running-config.txt`) |
 
 Then:

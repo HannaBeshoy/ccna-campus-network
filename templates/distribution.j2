@@ -8,6 +8,9 @@ interface {{ uplink.long }}
  no switchport
  ip address {{ uplink.v4.ip }} {{ uplink.v4.netmask }}
  ipv6 address {{ uplink.v6 }}
+{%- if uplink.lla %}
+ ipv6 address {{ uplink.lla | upper }} link-local
+{%- endif %}
  no shutdown
 !
 {%- if wlc %}
@@ -29,7 +32,7 @@ interface Vlan{{ s.id }}
  description {{ s.name }} gateway (HSRP active: {{ s.primary }})
  ip address {{ s.ip }} {{ s.mask }}
  ipv6 address {{ s.ip6 }}/64
- ipv6 address {{ s.lla }} link-local
+ ipv6 address {{ s.lla | upper }} link-local
  standby version 2
  standby {{ s.id }} ip {{ s.vip }}
 {%- if s.priority != 100 %}
@@ -52,7 +55,7 @@ interface Vlan{{ s.id }}
 !
 {%- endfor %}
 ip route 0.0.0.0 0.0.0.0 {{ r1_v4 }}
-ipv6 route ::/0 {{ r1_v6 }}
+ipv6 route ::/0 {{ r1_hop6 }}
 {%- if backup %}
 ! floating default routes through {{ backup.peer }} (VLAN {{ backup.vlan }}), used only while the uplink to R1 is down
 ip route 0.0.0.0 0.0.0.0 {{ backup.v4 }} {{ backup.ad }}

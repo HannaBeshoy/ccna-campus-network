@@ -34,6 +34,9 @@ interface {{ i.long }}
  description {{ i.desc }}
  ip address {{ i.v4.ip }} {{ i.v4.netmask }}
  ipv6 address {{ i.v6 }}
+{%- if i.lla %}
+ ipv6 address {{ i.lla | upper }} link-local
+{%- endif %}
 {%- if i.peer %}
  ipv6 dhcp server {{ dhcpv6_pool }}
 {%- endif %}
@@ -46,8 +49,11 @@ ip route {{ summary.network_address }} {{ summary.netmask }} {{ backup_hop }} {{
 {%- for h in host_routes %}
 ip route {{ h.dest }} 255.255.255.255 {{ h.hop }}
 {%- endfor %}
-ipv6 route ::/0 {{ default_v6 }}
+ipv6 route ::/0 {{ default6 }}
 ipv6 route {{ summary6 }} {{ primary_hop6 }}
 ipv6 route {{ summary6 }} {{ backup_hop6 }} {{ floating_ad }}
+{%- for h in host_routes6 %}
+ipv6 route {{ h.dest }}/128 {{ h.hop }}
+{%- endfor %}
 !
 end

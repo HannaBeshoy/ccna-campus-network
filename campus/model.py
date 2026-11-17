@@ -160,6 +160,21 @@ def validate(net):
                 p.append(f"R1 {ifn} and {i['peer']} {up['port']} are not in the same subnet")
             if ipaddress.ip_interface(up["v4"]).ip == ipaddress.ip_interface(i["v4"]).ip:
                 p.append(f"R1 {ifn} and {i['peer']} have the same address")
+    # link-local addresses: in fe80::/10, and the two ends of a link must differ
+    ends = []
+    for ifn, i in r1["interfaces"].items():
+        other = (raw["switches"][i["peer"]]["uplink"].get("lla") if "peer" in i
+                 else raw.get("isp", {}).get("uplink", {}).get("lla"))
+        ends.append((f"R1 {ifn}", i.get("lla"), other))
+    for name, mine, theirs in ends:
+        for ll in (mine, theirs):
+            if ll and not ipaddress.ip_address(ll).is_link_local:
+                p.append(f"{name}: {ll} is not a link-local address (fe80::/10)")
+        if mine and theirs and ipaddress.ip_address(mine) == ipaddress.ip_address(theirs):
+            p.append(f"{name}: both ends of the link use {mine}")
+    for h in r1.get("host_routes", []):
+        if "dest6" in h and not any(ipaddress.ip_address(h["dest6"]) in v.v6 for v in net.routed_vlans if v.v6):
+            p.append(f"IPv6 host route {h['dest6']} is not in a campus VLAN")
     summ = ipaddress.ip_network(r1["campus_summary"]["v4"])
     for v in net.routed_vlans:
         if not v.v4.subnet_of(summ):
@@ -261,6 +276,8 @@ def validate(net):
     if w:
         if w["switch"] not in dists:
             p.append("the WLC must connect to a distribution switch")
+        if "mgmt6" in w and not any(ipaddress.ip_interface(w["mgmt6"]).ip in v.v6 for v in net.routed_vlans if v.v6):
+            p.append("the WLC's IPv6 management address is not in a campus VLAN")
         if w["wlan"]["vlan"] not in net.vlans:
             p.append(f"WLAN VLAN {w['wlan']['vlan']} does not exist")
     return p

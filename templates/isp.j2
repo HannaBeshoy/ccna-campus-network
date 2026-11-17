@@ -6,6 +6,9 @@ interface {{ i.long }}
  description {{ i.desc }}
  ip address {{ i.v4.ip }} {{ i.v4.netmask }}
  ipv6 address {{ i.v6 }}
+{%- if i.lla %}
+ ipv6 address {{ i.lla | upper }} link-local
+{%- endif %}
  no shutdown
 !
 {%- endfor %}

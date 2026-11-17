@@ -124,7 +124,9 @@ def distribution_ctx(net, name, secrets):
     ctx.update({
         "backup": backup,
         "uplink": {"long": long_name(s["uplink"]["port"]), "v4": ipaddress.ip_interface(s["uplink"]["v4"]),
-                   "v6": s["uplink"]["v6"]},
+                   "v6": s["uplink"]["v6"], "lla": s["uplink"].get("lla")},
+        "r1_hop6": (f"{long_name(s['uplink']['port'])} {peer_if['lla'].upper()}" if peer_if.get("lla")
+                    else ipaddress.ip_interface(peer_if["v6"]).ip),
         "svis": svis, "wlc": wctx,
         "dhcp_server": ipaddress.ip_interface(r1["loopback"]["v4"]).ip,
         "dhcp_server6": ipaddress.ip_interface(r1["loopback"]["v6"]).ip,
@@ -159,6 +161,14 @@ def router_ctx(net, name, secrets):
     def hop(d, fam):
         return ipaddress.ip_interface(sw[d]["uplink"][fam]).ip
 
+    def fully(port, lla, fallback):
+        """'GigabitEthernet0/1 FE80::2' (fully specified, SRWE 15.2.6), or the global next hop."""
+        return f"{long_name(port)} {lla.upper()}" if lla else fallback
+
+    def hop6(d):
+        port = next(k for k, i in r["interfaces"].items() if i.get("peer") == d)
+        return fully(port, sw[d]["uplink"].get("lla"), ipaddress.ip_interface(sw[d]["uplink"]["v6"]).ip)
+
     pools = []
     for v in net.routed_vlans:
         if v.dhcp:
@@ -172,15 +182,18 @@ def router_ctx(net, name, secrets):
     ctx.update({
         "lo": {"v4": ipaddress.ip_interface(r["loopback"]["v4"]), "v6": r["loopback"]["v6"]},
         "interfaces": [{"long": long_name(k), "desc": i["desc"], "v4": ipaddress.ip_interface(i["v4"]),
-                        "v6": i["v6"], "peer": i.get("peer")} for k, i in r["interfaces"].items()],
+                        "v6": i["v6"], "lla": i.get("lla"), "peer": i.get("peer")} for k, i in r["interfaces"].items()],
         "pools": pools, "reservations": res, "dns": " ".join(a["dns"]), "dns6": " ".join(a["dns_v6"]),
         "dhcpv6_pool": "IOT-STATELESS",
         "default_v4": r["default_route"]["v4"], "default_v6": r["default_route"]["v6"],
         "summary": ipaddress.ip_network(r["campus_summary"]["v4"]), "summary6": r["campus_summary"]["v6"],
         "primary_hop": hop(r["primary_path"], "v4"), "backup_hop": hop(backup, "v4"),
-        "primary_hop6": hop(r["primary_path"], "v6"), "backup_hop6": hop(backup, "v6"),
+        "primary_hop6": hop6(r["primary_path"]), "backup_hop6": hop6(backup),
         "floating_ad": r["floating_ad"],
         "host_routes": [{"dest": h["dest"], "hop": hop(h["via"], "v4")} for h in r.get("host_routes", [])],
+        "host_routes6": [{"dest": h["dest6"], "hop": hop6(h["via"])} for h in r.get("host_routes", []) if "dest6" in h],
+        "default6": fully(next(k for k, i in r["interfaces"].items() if "peer" not in i),
+                          net.raw.get("isp", {}).get("uplink", {}).get("lla"), r["default_route"]["v6"]),
     })
     return ctx
 
@@ -193,11 +206,14 @@ def isp_ctx(net, secrets):
     ctx.update({
         "interfaces": [
             {"long": long_name(i["uplink"]["port"]), "desc": "to R1 (customer HU01)",
-             "v4": ipaddress.ip_interface(i["uplink"]["v4"]), "v6": i["uplink"]["v6"]},
+             "v4": ipaddress.ip_interface(i["uplink"]["v4"]), "v6": i["uplink"]["v6"], "lla": i["uplink"].get("lla")},
             {"long": long_name(i["server_lan"]["port"]), "desc": f"{i['server']['name']} LAN",
-             "v4": ipaddress.ip_interface(i["server_lan"]["v4"]), "v6": i["server_lan"]["v6"]}],
+             "v4": ipaddress.ip_interface(i["server_lan"]["v4"]), "v6": i["server_lan"]["v6"],
+             "lla": i["server_lan"].get("lla")}],
         "summary": ipaddress.ip_network(r1["campus_summary"]["v4"]), "summary6": r1["campus_summary"]["v6"],
-        "r1_v4": ipaddress.ip_interface(r1_out["v4"]).ip, "r1_v6": ipaddress.ip_interface(r1_out["v6"]).ip,
+        "r1_v4": ipaddress.ip_interface(r1_out["v4"]).ip,
+        "r1_v6": (f"{long_name(i['uplink']['port'])} {r1_out['lla'].upper()}" if r1_out.get("lla")
+                  else ipaddress.ip_interface(r1_out["v6"]).ip),
     })
     return ctx
 
