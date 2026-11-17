@@ -18,8 +18,8 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 | 12 | WLAN concepts | lightweight AP (CAPWAP) on A1, WLC on D2, WPA2-Enterprise |
 | 13 | WLAN configuration | WLC settings: interface on VLAN 40, DHCP via the relay, RADIUS |
 | 14 | routing concepts | longest match: the WLC's /32 beats the campus /17; administrative distance |
-| 15 | static routing | default, summary, floating (AD 10) and host routes, IPv4 and IPv6 |
-| 16 | troubleshooting static routes | `python -m campus verify` on `show ip route`; the failover test on the lab day |
+| 15 | static routing | default, summary, floating (AD 10) and host routes, IPv4 and IPv6; the ISP and dual-stack server for end-to-end tests |
+| 16 | troubleshooting static routes | `python -m campus trace` and `paths` before the lab, `verify` on `show ip route`; the failover tests |
 
 ## 1. One file, generated configurations
 
@@ -90,7 +90,15 @@ R1 has four kinds of static route, each from module 15:
 | `ip route 10.20.0.0 255.255.128.0 10.20.255.6 10` | floating static: the same route through D2 with administrative distance 10. It stays out of the routing table while the AD 1 route exists, and appears when D1's link goes down |
 | `ip route 10.20.99.20 255.255.255.255 10.20.255.6` | host route: longest match wins over the /17, so traffic to the WLC goes straight to D2 |
 
-The same set exists for IPv6 (a /56 summary). D1 and D2 need only a default route to R1. Module 16's troubleshooting is the lab-day failover test: shut D1's uplink, watch the floating route appear with `show ip route`, bring it back.
+The same set exists for IPv6 (a /56 summary). D1 and D2 have a default route to R1, and a floating default route (AD 10) through each other over VLAN 99. Module 16's troubleshooting is the lab-day failover test: shut D1's uplink, watch the floating route appear with `show ip route`, bring it back.
+
+### The outside world and the simulator
+
+Outside the campus there is now an ISP router and a dual-stack server (64.100.1.10, 2001:db8:100:1::a), the topology of SRWE 15.1.5. Without NAT (next course) the ISP needs static routes back to the campus summaries. With a target outside, the default routes can be tested end to end from every VLAN, in IPv4 and IPv6.
+
+`python -m campus trace` and `paths` do that test before the lab. They build each device's routing table from the generated configuration the way IOS does: a connected route for every interface that is up, a static route only if its next hop is reachable, the lowest administrative distance for each prefix, then the longest match. Taking an interface down removes its connected route on both ends of the link, so R1's AD 1 route through D1 disappears and the floating AD 10 route through D2 is installed, exactly as `show ip route` will show.
+
+The first run found a gap. With D1's uplink down, R1's floating route brought return traffic in through D2, but outbound traffic from VLANs 10, 20 and 99 still went to D1, the HSRP active router, and D1 had no route out: HSRP watches the other router, not the uplink. The fix is a floating default route on each distribution switch through the other one over VLAN 99. [PATHS.md](PATHS.md) shows every VLAN in five scenarios: everything up, either uplink down, either switch off.
 
 ## 13. The tool
 
@@ -102,6 +110,8 @@ The same set exists for IPv6 (a /56 summary). D1 and D2 need only a default rout
 | `diff` | what a saved running-config is missing compared with the design (it understands that a running-config lists interfaces one by one, hides secrets and omits `no shutdown`) |
 | `stp` | the spanning-tree prediction |
 | `plan` | the addressing plan, docs/ADDRESSING.md |
+| `trace` | one packet hop by hop through the routing tables, with links or devices down |
+| `paths` | every VLAN to the dual-stack server and back in five failure scenarios, docs/PATHS.md |
 | `verify` | the lab-day show outputs against the design: VLANs, EtherChannels, HSRP states, STP roles, R1's routes |
 
 ## Notes for the three tracks

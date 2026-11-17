@@ -43,7 +43,7 @@ Record each result (and the command output) in `docs/lab_day.md`.
 | 4 | EtherChannel | unplug one cable of Po11 during a continuous ping | no loss; `show etherchannel summary` shows one member (D) |
 | 5 | HSRP failover | continuous ping to 10.20.10.1, reload D1 | a few seconds of loss, D2 becomes Active; D1 takes it back after the reload (preempt) |
 | 6 | STP | `show spanning-tree` on A1 | `verify` passes; Po12 Altn in VLAN 10, Root in VLAN 30 |
-| 7 | floating static | `shutdown` on D1 G1/0/24 | R1 installs 10.20.0.0/17 via 10.20.255.6 [10/0]; `no shutdown` brings back [1/0] |
+| 7 | floating static | `shutdown` on D1 G1/0/24, then from a VLAN 10 laptop `ping 64.100.1.10` and `tracert 64.100.1.10` | R1 installs 10.20.0.0/17 via 10.20.255.6 [10/0]; D1 installs 0.0.0.0/0 via 10.20.99.3 [10/0]; the ping still works and tracert shows D1, D2, R1, ISP (as `python -m campus trace vlan10 server --down R1:G0/1`); `no shutdown` brings back [1/0] |
 | 8 | port security | a second device behind a small hub/switch on a sensor port | the port goes err-disabled; recover with `shutdown` / `no shutdown` |
 | 9 | BPDU guard | plug a spare switch into Fa0/2 | Fa0/2 err-disabled (BPDU guard) |
 | 10 | rogue DHCP | a laptop running a DHCP server on Fa0/3 | clients still get R1's addresses; snooping drops the offers |
