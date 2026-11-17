@@ -7,7 +7,9 @@ About 1.5 hours. The result, `packet-tracer/campus.pkt`, goes into the repositor
 | Name | Packet Tracer device | Notes |
 | --- | --- | --- |
 | R1 | 2911 | three Gigabit ports G0/0-G0/2 (the ISR4321 and ISR4331 in Packet Tracer have only two) |
-| ISP | 2911 (or any router) | only G0/0 with 203.0.113.1/30, a loopback 8.8.8.8/32 to ping, and `ip route 10.20.0.0 255.255.128.0 203.0.113.2` |
+| ISP | 2911 | G0/0 to R1, G0/1 to the server LAN; paste `build/ISP.cfg` (routes back to the campus summaries, since there is no NAT yet) |
+| Internet | Cloud-PT (optional) | only a picture between R1 and the ISP, as in the course activities; a straight cable R1 G0/0 to ISP G0/0 works the same |
+| Dual Stack Server | Server-PT | 64.100.1.10/24, gateway 64.100.1.1; 2001:db8:100:1::a/64, gateway 2001:db8:100:1::1 (Desktop, IP Configuration) |
 | D1, D2 | 3650-24PS | add the power supply in the Physical tab (AC-POWER-SUPPLY), or the switch stays off |
 | A1, A2 | 2960-24TT | |
 | WLC1 | WLC-2504 | |
@@ -22,6 +24,7 @@ Copper straight-through everywhere, following the port names in `network.yaml`:
 | From | To |
 | --- | --- |
 | R1 G0/0 | ISP G0/0 |
+| ISP G0/1 | Dual Stack Server Fa0 |
 | R1 G0/1 | D1 G1/0/24 |
 | R1 G0/2 | D2 G1/0/24 |
 | D1 G1/0/21-22 | D2 G1/0/21-22 |
@@ -36,7 +39,7 @@ Copper straight-through everywhere, following the port names in `network.yaml`:
 
 ## 3. Configurations (20 min)
 
-On your PC: `cp secrets.example.yaml secrets.yaml`, set two passwords, `python -m campus generate --out build`. Then for each device: CLI tab, `enable`, `configure terminal`, paste `build/<name>.cfg`. Paste R1 first, then D1 and D2, then A1 and A2. `end`, `copy running-config startup-config`.
+On your PC: `cp secrets.example.yaml secrets.yaml`, set two passwords, `python -m campus generate --out build`. Then for each device: CLI tab, `enable`, `configure terminal`, paste `build/<name>.cfg`. Paste ISP and R1 first, then D1 and D2, then A1 and A2. `end`, `copy running-config startup-config`.
 
 If Packet Tracer rejects a line, note it (device, line, message) for the README: some Packet Tracer versions do not know every IOS command (for example `ip arp inspection validate` on the 2960, or IPv6 HSRP on the 3650). The real switches on the lab day are the reference.
 
@@ -52,7 +55,7 @@ Wait about a minute for STP and EtherChannel, then:
 | --- | --- |
 | PCs get addresses (Desktop, IP Configuration, DHCP) | 10.20.10.21, 10.20.20.21, ...; the ESP32 stand-in gets 10.20.30.21 once its MAC is in `network.yaml` |
 | ping between VLANs | works (inter-VLAN routing on D1/D2) |
-| ping 8.8.8.8 from a PC | works (default routes to the ISP) |
+| ping 64.100.1.10 and 2001:db8:100:1::a from a PC | works (default routes to the ISP, routes back on the ISP) |
 | `show etherchannel summary` on every switch | every Po (SU), members (P) |
 | `show standby brief` on D1 | Active for 10, 20, 99; Standby for 30, 40 |
 | `show spanning-tree` on A1 | as `python -m campus stp` predicts |

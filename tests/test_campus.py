@@ -60,6 +60,10 @@ def test_port_ranges():
     (lambda r: r["switches"]["D1"]["uplink"].update(v4="10.20.255.9/30"), "not in the same subnet"),
     (lambda r: r["dhcp_reservations"][0].update(ip="10.20.30.5"), "excluded range"),
     (lambda r: r["dhcp_reservations"][0].update(ip="10.20.20.50"), "is not in VLAN 30"),
+    (lambda r: r["isp"]["uplink"].update(v4="203.0.113.5/30"), "not in the same IPv4 subnet"),
+    (lambda r: r["isp"]["server"].update(v4="64.100.1.1"), "not a usable host"),
+    (lambda r: r["isp"]["server_lan"].update(v4="10.20.100.1/24"), "overlaps the campus"),
+    (lambda r: r["routers"]["R1"]["default_route"].update(v4="203.0.113.3"), "does not point at the ISP"),
     (lambda r: r["vlans"].update({1: {"name": "default", "v4": "10.20.1.0/24", "v6": "2001:db8:acad:1::/64", "primary": "D1"}}),
      "VLAN 1 must not carry traffic"),
 ])
@@ -70,7 +74,7 @@ def test_validation_catches_mistakes(net, edit, expected):
 
 # --- generated configurations -------------------------------------------------------------------
 def test_one_config_per_device_with_placeholders_not_passwords(cfg):
-    assert set(cfg) == {"R1", "D1", "D2", "A1", "A2"}
+    assert set(cfg) == {"R1", "ISP", "D1", "D2", "A1", "A2"}
     for text in cfg.values():
         assert "enable secret <ENABLE_SECRET>" in text and "secret <ADMIN_SECRET>" in text
 
@@ -113,6 +117,14 @@ def test_router_routes_and_pools(cfg):
     assert r1["ip dhcp pool iot"] == ["network 10.20.30.0 255.255.255.0", "default-router 10.20.30.1",
                                       "dns-server 10.20.99.53", "domain-name hu01.test"]
     assert "hardware-address 0000.0000.0001" in r1["ip dhcp pool esp32-node-1"]
+
+
+def test_isp_routes_back_to_the_campus(cfg):
+    isp = parse(cfg["ISP"])
+    assert "ip route 10.20.0.0 255.255.128.0 203.0.113.2" in isp[""]
+    assert "ipv6 route 2001:db8:acad::/56 2001:db8:f::2" in isp[""]
+    assert "ip address 64.100.1.1 255.255.255.0" in isp["interface gigabitethernet0/1"]
+    assert "ipv6 address 2001:db8:100:1::1/64" in isp["interface gigabitethernet0/1"]
 
 
 def test_etherchannel_members_match_on_both_ends(cfg, net):

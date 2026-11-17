@@ -24,6 +24,15 @@ def plan(net):
         peer = i.get("peer", "ISP")
         out.append(f"| R1 {ifn} - {peer} | {n} | R1 {i['v4'].split('/')[0]}, {peer} {other} |")
     out.append(f"| R1 Loopback0 (DHCP server) | {r1['loopback']['v4']} | {r1['loopback']['v6']} |")
+    isp = net.raw.get("isp")
+    if isp:
+        out += ["", "## Outside: ISP and the dual-stack server (for the end-to-end tests)", "",
+                "| Device | Interface | IPv4 | IPv6 |", "| --- | --- | --- | --- |",
+                f"| {isp['name']} | {isp['uplink']['port']} (to R1) | {isp['uplink']['v4']} | {isp['uplink']['v6']} |",
+                f"| {isp['name']} | {isp['server_lan']['port']} (server LAN) | {isp['server_lan']['v4']} | {isp['server_lan']['v6']} |",
+                f"| {isp['server']['name']} | NIC | {isp['server']['v4']}/{ipaddress.ip_interface(isp['server_lan']['v4']).network.prefixlen}, "
+                f"gateway {isp['server_lan']['v4'].split('/')[0]} | {isp['server']['v6']}/64, "
+                f"gateway {isp['server_lan']['v6'].split('/')[0]} |"]
     out += ["", "## Switch management (VLAN 99)", "", "| Device | Address |", "| --- | --- |"]
     for d in net.dist():
         mg = net.vlans[99]

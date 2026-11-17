@@ -231,6 +231,25 @@ def validate(net):
         if not re.fullmatch(r"[0-9a-f]{4}\.[0-9a-f]{4}\.[0-9a-f]{4}", res["mac"]):
             p.append(f"reservation {res['name']}: MAC must be written as xxxx.xxxx.xxxx")
 
+    isp = raw.get("isp")
+    if isp:
+        up4, up6 = ipaddress.ip_interface(isp["uplink"]["v4"]), ipaddress.ip_interface(isp["uplink"]["v6"])
+        r1_out = next((i for i in r1["interfaces"].values() if "peer" not in i), None)
+        if r1_out is None or ipaddress.ip_interface(r1_out["v4"]).network != up4.network:
+            p.append("the ISP uplink and R1's outside interface are not in the same IPv4 subnet")
+        if r1_out is not None and ipaddress.ip_interface(r1_out["v6"]).network != up6.network:
+            p.append("the ISP uplink and R1's outside interface are not in the same IPv6 subnet")
+        if str(up4.ip) != r1["default_route"]["v4"] or up6.ip != ipaddress.ip_address(r1["default_route"]["v6"]):
+            p.append("R1's default route does not point at the ISP")
+        lan4, lan6 = ipaddress.ip_interface(isp["server_lan"]["v4"]), ipaddress.ip_interface(isp["server_lan"]["v6"])
+        srv4, srv6 = ipaddress.ip_address(isp["server"]["v4"]), ipaddress.ip_address(isp["server"]["v6"])
+        if srv4 not in lan4.network or srv4 in (lan4.ip, lan4.network.network_address, lan4.network.broadcast_address):
+            p.append(f"the server {srv4} is not a usable host of {lan4.network}")
+        if srv6 not in lan6.network or srv6 == lan6.ip:
+            p.append(f"the server {srv6} is not a host of {lan6.network}")
+        if lan4.network.overlaps(summ) or lan6.network.overlaps(ipaddress.ip_network(r1["campus_summary"]["v6"])):
+            p.append("the server LAN overlaps the campus")
+
     w = raw.get("wlc")
     if w:
         if w["switch"] not in dists:

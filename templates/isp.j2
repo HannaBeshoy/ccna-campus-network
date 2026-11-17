@@ -1,0 +1,16 @@
+{% include "_base.j2" %}
+ipv6 unicast-routing
+!
+{%- for i in interfaces %}
+interface {{ i.long }}
+ description {{ i.desc }}
+ ip address {{ i.v4.ip }} {{ i.v4.netmask }}
+ ipv6 address {{ i.v6 }}
+ no shutdown
+!
+{%- endfor %}
+! no NAT on the customer side yet (ENSA): routes back to the customer's summaries
+ip route {{ summary.network_address }} {{ summary.netmask }} {{ r1_v4 }}
+ipv6 route {{ summary6 }} {{ r1_v6 }}
+!
+end
