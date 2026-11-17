@@ -56,6 +56,7 @@ class Vlan:
     primary: str = None
     dhcp: bool = False
     dhcpv6: str = None          # None (SLAAC only), 'stateless' or 'stateful'
+    hosts: int = None           # devices expected at the real site (sizes the subnet, ITN 11)
 
     def host(self, n):
         return self.v4.network_address + n
@@ -104,7 +105,8 @@ def load_from(raw):
             v4=ipaddress.ip_network(v["v4"]) if "v4" in v else None,
             v6=ipaddress.ip_network(v["v6"]) if "v6" in v else None,
             primary=v.get("primary"), dhcp=v.get("dhcp", False),
-            dhcpv6=v.get("dhcpv6", "stateless" if v.get("dhcpv6_stateless") else None))
+            dhcpv6=v.get("dhcpv6", "stateless" if v.get("dhcpv6_stateless") else None),
+            hosts=v.get("hosts"))
     net.routed_vlans = [v for v in net.vlans.values() if v.v4 is not None]
     return net
 
@@ -164,6 +166,14 @@ def validate(net):
                 p.append(f"VLAN {v.id}: {what} .{a[what]} is outside {v.v4}")
         if v.dhcp and a["dhcp_excluded_last"] >= v.v4.num_addresses - 2:
             p.append(f"VLAN {v.id}: the excluded range leaves no addresses for DHCP")
+        if v.hosts is not None:
+            from .vlsm import capacity, with_growth
+            need, room = with_growth(v.hosts, a.get("growth_percent", 0)), capacity(net, v)
+            if v.hosts < 1:
+                p.append(f"VLAN {v.id}: hosts must be at least 1")
+            elif need > room:
+                p.append(f"VLAN {v.id}: {v.hosts} hosts + {a.get('growth_percent', 0)}% growth = {need}, "
+                         f"but {v.v4} has room for {room}")
 
     # the router's links to the distribution switches match the switches' uplinks
     r1 = raw["routers"]["R1"]
