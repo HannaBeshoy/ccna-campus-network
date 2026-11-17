@@ -14,7 +14,8 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus diff` and `verify`: compare a running-config and saved show commands with the design
 - [x] `python -m campus trace` and `paths`: every router's routing table built from the configs, packets followed hop by hop to the dual-stack server behind the ISP, with links or switches taken down ([docs/PATHS.md](docs/PATHS.md)); this found a real gap, fixed with a floating default route between the distribution switches
 - [x] `python -m campus vlsm`: every subnet sized from the hosts it must hold plus growth, a VLSM allocation next to the /24 plan, /30 against /31 links ([docs/VLSM.md](docs/VLSM.md))
-- [x] **115 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] `python -m campus connectivity`: the ping and tracert test plan with every expected hop in IPv4 and IPv6, the failover paths and extended pings from the routers ([docs/CONNECTIVITY.md](docs/CONNECTIVITY.md)); `verify` checks the saved outputs. The extended ping found that the ISP only routed the VLAN summary back
+- [x] **131 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -100,6 +101,7 @@ python -m campus stp
 python -m campus vlsm                  # subnet sizes from the host counts
 python -m campus trace vlan10 server --down R1:G0/1   # follow a packet with D1's uplink down
 python -m campus paths                 # every VLAN to the server, five failure scenarios
+python -m campus connectivity          # ping/tracert plan with the expected hops
 python -m campus diff A1 saved_running_config.txt
 python -m campus verify captures       # show-command outputs from the lab
 python -m pytest -v tests
@@ -112,8 +114,8 @@ network.yaml        the design
 campus/             model and checks, generator, policy lint, running-config diff, STP prediction, routing simulator, lab verifier
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2)
-docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, Packet Tracer steps, lab-day test sheet
-tests/              115 tests; fixtures/lab holds hand-written show outputs in IOS format
+docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, ping/tracert plan, Packet Tracer steps, lab-day test sheet
+tests/              131 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 

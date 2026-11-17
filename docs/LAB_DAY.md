@@ -22,6 +22,7 @@ Save the output of these commands into `captures/<device>_<command>.txt` (spaces
 | D1, D2 | `show etherchannel summary`, `show standby brief`, `show spanning-tree`, `show ip route` |
 | R1 | `show ip route`, `show ipv6 route` (the /56 and ::/0 via FE80:: addresses with their interfaces), `show ipv6 interface brief`, `show ip dhcp binding` |
 | each | `show running-config` (as `<device>_running-config.txt`) |
+| a laptop in VLAN 10 and in VLAN 30, R1 | the pings and tracerts of [CONNECTIVITY.md](CONNECTIVITY.md) section 5 (`vlan10_tracert_server.txt`, `vlan30_tracert6_server.txt`, `R1_ping_server_source_Loopback0.txt`, ...) |
 
 Then:
 
@@ -41,6 +42,7 @@ Record each result (and the command output) in `docs/lab_day.md`.
 | 2 | SLAAC + stateless DHCPv6 | the laptop on Fa0/17 (VLAN 30), `ipconfig /all` | a 2001:db8:acad:30:: address and the DNS server 2001:db8:acad:99::53 |
 | 2b | stateful DHCPv6 | the laptop on A2 Fa0/1 (VLAN 20), `ipconfig /all`; on R1 `show ipv6 dhcp binding` | one 2001:db8:acad:20:: address (no second SLAAC address), listed in R1's binding table |
 | 3 | inter-VLAN routing | ping from VLAN 10 to a VLAN 20 host | replies |
+| 3a | end to end | from VLAN 10 and VLAN 30: `tracert -d 64.100.1.10`, `tracert -d 2001:db8:100:1::a`; on R1 `ping 64.100.1.10 source Loopback0` | the hops of [CONNECTIVITY.md](CONNECTIVITY.md); the first hop is the switch's own SVI address; R1's extended ping replies |
 | 4 | EtherChannel | unplug one cable of Po11 during a continuous ping | no loss; `show etherchannel summary` shows one member (D) |
 | 5 | HSRP failover | continuous ping to 10.20.10.1, reload D1 | a few seconds of loss, D2 becomes Active; D1 takes it back after the reload (preempt) |
 | 6 | STP | `show spanning-tree` on A1 | `verify` passes; Po12 Altn in VLAN 10, Root in VLAN 30 |

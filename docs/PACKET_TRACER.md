@@ -57,6 +57,8 @@ Wait about a minute for STP and EtherChannel, then:
 | PCs get addresses (Desktop, IP Configuration, DHCP) | 10.20.10.21, 10.20.20.21, ...; the ESP32 stand-in gets 10.20.30.21 once its MAC is in `network.yaml` |
 | ping between VLANs | works (inter-VLAN routing on D1/D2) |
 | ping 64.100.1.10 and 2001:db8:100:1::a from a PC | works (default routes to the ISP, routes back on the ISP) |
+| `tracert 64.100.1.10` from a VLAN 10 PC and a VLAN 30 PC | the hops listed in [CONNECTIVITY.md](CONNECTIVITY.md): 10.20.10.2, 10.20.255.1, 203.0.113.1, 64.100.1.10 from VLAN 10 |
+| on R1 `ping 64.100.1.10 source Loopback0` | replies (the ISP routes the whole site block back) |
 | `show etherchannel summary` on every switch | every Po (SU), members (P) |
 | `show standby brief` on D1 | Active for 10, 20, 99; Standby for 30, 40, 50 |
 | `show spanning-tree` on A1 | as `python -m campus stp` predicts |
