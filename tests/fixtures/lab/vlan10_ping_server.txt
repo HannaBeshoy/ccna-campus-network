@@ -1,0 +1,12 @@
+C:\>ping 64.100.1.10
+
+Pinging 64.100.1.10 with 32 bytes of data:
+Request timed out.
+Reply from 64.100.1.10: bytes=32 time=2ms TTL=125
+Reply from 64.100.1.10: bytes=32 time=1ms TTL=125
+Reply from 64.100.1.10: bytes=32 time=1ms TTL=125
+
+Ping statistics for 64.100.1.10:
+    Packets: Sent = 4, Received = 3, Lost = 1 (25% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 1ms, Maximum = 2ms, Average = 1ms
