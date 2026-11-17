@@ -53,5 +53,10 @@ interface Vlan{{ s.id }}
 {%- endfor %}
 ip route 0.0.0.0 0.0.0.0 {{ r1_v4 }}
 ipv6 route ::/0 {{ r1_v6 }}
+{%- if backup %}
+! floating default routes through {{ backup.peer }} (VLAN {{ backup.vlan }}), used only while the uplink to R1 is down
+ip route 0.0.0.0 0.0.0.0 {{ backup.v4 }} {{ backup.ad }}
+ipv6 route ::/0 {{ backup.v6 }} {{ backup.ad }}
+{%- endif %}
 !
 end

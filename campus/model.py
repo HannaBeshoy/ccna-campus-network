@@ -231,6 +231,13 @@ def validate(net):
         if not re.fullmatch(r"[0-9a-f]{4}\.[0-9a-f]{4}\.[0-9a-f]{4}", res["mac"]):
             p.append(f"reservation {res['name']}: MAC must be written as xxxx.xxxx.xxxx")
 
+    bd = raw.get("distribution", {}).get("backup_default")
+    if bd:
+        if bd["via_vlan"] not in net.vlans or net.vlans[bd["via_vlan"]].v4 is None:
+            p.append(f"backup default route: VLAN {bd['via_vlan']} is not a routed VLAN")
+        if not 1 < bd["ad"] < 255:
+            p.append("backup default route: the administrative distance must be between 2 and 254")
+
     isp = raw.get("isp")
     if isp:
         up4, up6 = ipaddress.ip_interface(isp["uplink"]["v4"]), ipaddress.ip_interface(isp["uplink"]["v6"])

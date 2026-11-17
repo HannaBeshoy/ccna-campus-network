@@ -112,9 +112,17 @@ def distribution_ctx(net, name, secrets):
     if w and w["switch"] == name:
         mg = next(v.id for v in net.routed_vlans if ipaddress.ip_interface(w["mgmt"]).ip in v.v4)
         wctx = {"name": w["name"], "long": long_name(w["port"]), "vlans": vlan_list({w["wlan"]["vlan"], mg})}
+    bd = net.raw.get("distribution", {}).get("backup_default")
+    backup = None
+    if bd:
+        other = next(d for d in net.dist() if d != name)
+        ov = net.vlans[bd["via_vlan"]]
+        oh = a["d1_host"] if other == net.dist()[0] else a["d2_host"]
+        backup = {"peer": other, "v4": ov.host(oh), "v6": ov.host6(oh), "ad": bd["ad"], "vlan": ov.id}
     ctx = common(net, name, s["model"], secrets, 15)
     ctx.update(switch_common(net, name))
     ctx.update({
+        "backup": backup,
         "uplink": {"long": long_name(s["uplink"]["port"]), "v4": ipaddress.ip_interface(s["uplink"]["v4"]),
                    "v6": s["uplink"]["v6"]},
         "svis": svis, "wlc": wctx,

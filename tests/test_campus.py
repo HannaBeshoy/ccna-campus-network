@@ -302,3 +302,26 @@ def test_trace_reports_a_missing_route(net):
     ok, hops = lab.trace("vlan10", "server")
     assert not ok
     assert hops[-1] == "ISP: no route to 64.100.1.10 - dropped"
+
+
+@pytest.mark.parametrize("link, owner", [("R1:G0/1", "D1"), ("R1:G0/2", "D2")])
+def test_an_uplink_can_fail(net, link, owner):
+    """Found by the simulator: without the floating default route a switch that loses its uplink
+    stays HSRP active and drops its VLANs' traffic to the outside."""
+    for v in net.routed_vlans:
+        for family in (4, 6):
+            ok1, ok2, h1, h2 = round_trip(net, v.id, family, [link])
+            assert ok1 and ok2, (link, v.id, family, h1, h2)
+    ok1, _, h1, _ = round_trip(net, 10 if owner == "D1" else 30, 4, [link])
+    assert "[10/0] via 10.20.99." in " ".join(h1)
+
+
+def test_without_the_backup_default_an_uplink_failure_blackholes(net):
+    n = changed(net, lambda r: r.pop("distribution"))
+    ok1, ok2, h1, _ = round_trip(n, 10, 4, ["R1:G0/1"])
+    assert not ok1 and ok2 and h1[-1] == "D1: no route to 64.100.1.10 - dropped"
+
+
+def test_backup_default_route_in_the_configs(cfg):
+    assert "ip route 0.0.0.0 0.0.0.0 10.20.99.3 10" in parse(cfg["D1"])[""]
+    assert "ipv6 route ::/0 2001:db8:acad:99::2 10" in parse(cfg["D2"])[""]
