@@ -113,7 +113,7 @@ def test_router_routes_and_pools(cfg):
     assert "ip route 10.20.0.0 255.255.128.0 10.20.255.2" in g
     assert "ip route 10.20.0.0 255.255.128.0 10.20.255.6 10" in g        # floating static
     assert "ip route 10.20.99.20 255.255.255.255 10.20.255.6" in g       # host route
-    assert "ipv6 route 2001:db8:acad::/56 2001:db8:acad:ff02::2 10" in g
+    assert "ipv6 route 2001:db8:acad::/56 gigabitethernet0/2 fe80::3 10" in g   # fully specified
     assert "ip dhcp excluded-address 10.20.30.1 10.20.30.20" in g
     assert r1["ip dhcp pool iot"] == ["network 10.20.30.0 255.255.255.0", "default-router 10.20.30.1",
                                       "dns-server 10.20.99.53", "domain-name hu01.test"]
@@ -123,7 +123,7 @@ def test_router_routes_and_pools(cfg):
 def test_isp_routes_back_to_the_campus(cfg):
     isp = parse(cfg["ISP"])
     assert "ip route 10.20.0.0 255.255.128.0 203.0.113.2" in isp[""]
-    assert "ipv6 route 2001:db8:acad::/56 2001:db8:f::2" in isp[""]
+    assert "ipv6 route 2001:db8:acad::/56 gigabitethernet0/0 fe80::1" in isp[""]
     assert "ip address 64.100.1.1 255.255.255.0" in isp["interface gigabitethernet0/1"]
     assert "ipv6 address 2001:db8:100:1::1/64" in isp["interface gigabitethernet0/1"]
 
@@ -265,13 +265,13 @@ def test_routing_table_of_r1(net):
     assert ("0.0.0.0/0", 1, "203.0.113.1") in t
     assert ("10.20.0.0/17", 1, "10.20.255.2") in t
     assert not any(p == "10.20.0.0/17" and ad == 10 for p, ad, _ in t)       # the floating route waits
-    assert ("2001:db8:acad::/56", 1, "2001:db8:acad:ff01::2") in t
+    assert ("2001:db8:acad::/56", 1, "fe80::2") in t
 
 
 def test_floating_route_replaces_the_primary_when_its_link_goes_down(net):
     t = {(str(p), ad, str(h) if h else None) for p, ad, h, _, _ in Lab(net, ["R1:G0/1"]).devices["R1"].table()}
     assert ("10.20.0.0/17", 10, "10.20.255.6") in t
-    assert ("2001:db8:acad::/56", 10, "2001:db8:acad:ff02::2") in t
+    assert ("2001:db8:acad::/56", 10, "fe80::3") in t
     assert not any(p == "10.20.255.0/30" for p, _, _ in t)                   # the connected route is gone too
 
 
