@@ -47,8 +47,12 @@ interface Vlan{{ s.id }}
 {%- if s.dhcp %}
  ip helper-address {{ dhcp_server }}
 {%- endif %}
-{%- if s.dhcpv6_stateless %}
+{%- if s.dhcpv6 == 'stateless' %}
  ipv6 nd other-config-flag
+ ipv6 dhcp relay destination {{ dhcp_server6 }}
+{%- elif s.dhcpv6 == 'stateful' %}
+ ipv6 nd managed-config-flag
+ ipv6 nd prefix default no-autoconfig
  ipv6 dhcp relay destination {{ dhcp_server6 }}
 {%- endif %}
  no shutdown
