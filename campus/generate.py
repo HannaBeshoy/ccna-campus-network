@@ -44,11 +44,22 @@ def compress(ports):
     return out
 
 
-def load_secrets(path):
+class SecretsError(Exception):
+    pass
+
+
+def load_secrets(path, min_length=0):
+    """Passwords from secrets.yaml, or placeholders. A real password shorter than the device's
+    'security passwords min-length' would be rejected by IOS halfway through the paste."""
     if path and os.path.exists(path):
         with open(path) as f:
             s = yaml.safe_load(f) or {}
-        return {k: s.get(k, v) for k, v in PLACEHOLDERS.items()}
+        out = {k: str(s.get(k, v)) for k, v in PLACEHOLDERS.items()}
+        short = [k for k, v in out.items() if v not in PLACEHOLDERS.values() and len(v) < min_length]
+        if short:
+            raise SecretsError(f"secrets.yaml: {', '.join(short)} shorter than {min_length} characters "
+                               f"(security passwords min-length)")
+        return out
     return dict(PLACEHOLDERS)
 
 
@@ -224,7 +235,7 @@ def isp_ctx(net, secrets):
 
 
 def render_all(net, secrets_path=None):
-    secrets = load_secrets(secrets_path)
+    secrets = load_secrets(secrets_path, net.raw["site"].get("hardening", {}).get("min_password_length", 0))
     e = env()
     out = {}
     for name in net.raw["routers"]:

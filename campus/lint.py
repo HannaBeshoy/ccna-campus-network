@@ -35,6 +35,16 @@ def lint_text(text):
         issues.append("line vty: login local is missing")
     if any(l.startswith("username") and " password " in l for l in g):
         issues.append("a username uses 'password' instead of 'secret'")
+    # ITN 16.4: password length, login blocking, idle timeout
+    m = [l for l in g if l.startswith("security passwords min-length")]
+    if not m or int(m[0].split()[-1]) < 8:
+        issues.append("security passwords min-length is missing or below 8")
+    if not any(l.startswith("login block-for") for l in g):
+        issues.append("login block-for is missing (no protection against password guessing)")
+    for sec in ("line con 0", "line vty"):
+        t = [l for l in s.get(sec, []) if l.startswith("exec-timeout")]
+        if not t or t[0].split()[1:] == ["0", "0"] or (len(t[0].split()) > 1 and int(t[0].split()[1]) > 30):
+            issues.append(f"{sec}: exec-timeout is missing, 0 0 or longer than 30 minutes")
 
     if is_switch:
         if not any(l.startswith("spanning-tree mode rapid-pvst") for l in g):

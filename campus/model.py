@@ -116,6 +116,16 @@ def validate(net):
     dists, accs = net.dist(), net.access()
     a = raw["addressing"]
 
+    h = raw["site"].get("hardening")
+    if h:
+        if h["min_password_length"] < 8:
+            p.append("hardening: minimum password length below 8")
+        lb = h["login_block"]
+        if not (lb["attempts"] >= 1 and lb["within"] >= 1 and lb["seconds"] >= 1):
+            p.append("hardening: login block-for needs positive seconds, attempts and window")
+        if not 1 <= h["exec_timeout"] <= 30:
+            p.append("hardening: exec-timeout should be 1 to 30 minutes")
+
     # VLANs
     for v in net.vlans.values():
         if not 1 <= v.id <= 4094 or v.id in (1002, 1003, 1004, 1005):

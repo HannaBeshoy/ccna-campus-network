@@ -4,6 +4,12 @@ hostname {{ name }}
 no ip domain-lookup
 ip domain-name {{ site.domain }}
 service password-encryption
+{%- if site.hardening %}
+security passwords min-length {{ site.hardening.min_password_length }}
+login block-for {{ site.hardening.login_block.seconds }} attempts {{ site.hardening.login_block.attempts }} within {{ site.hardening.login_block.within }}
+login on-failure log
+login on-success log
+{%- endif %}
 enable secret {{ secrets.enable }}
 username admin privilege 15 secret {{ secrets.admin }}
 banner motd ^{{ site.banner }}^
@@ -16,9 +22,9 @@ ip ssh authentication-retries 3
 line con 0
  logging synchronous
  login local
- exec-timeout 10 0
+ exec-timeout {{ site.hardening.exec_timeout if site.hardening else 10 }} 0
 line vty 0 {{ vty_last }}
  transport input ssh
  login local
- exec-timeout 10 0
+ exec-timeout {{ site.hardening.exec_timeout if site.hardening else 10 }} 0
 !
