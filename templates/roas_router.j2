@@ -1,0 +1,55 @@
+{% include "_base.j2" %}
+ipv6 unicast-routing
+!
+{%- for p in pools %}
+ip dhcp excluded-address {{ p.excl_first }} {{ p.excl_last }}
+{%- endfor %}
+!
+! the router is on every subnet, so it serves the pools directly: no relay
+{%- for p in pools %}
+ip dhcp pool {{ p.name }}
+ network {{ p.network }} {{ p.mask }}
+ default-router {{ p.gw }}
+ dns-server {{ dns }}
+ domain-name {{ site.domain }}
+{%- endfor %}
+!
+{%- for p in stateful6 %}
+ipv6 dhcp pool {{ p.name }}
+ address prefix {{ p.prefix }} lifetime 172800 86400
+ dns-server {{ dns6 }}
+ domain-name {{ site.domain }}
+{%- endfor %}
+{%- if stateless6 %}
+ipv6 dhcp pool ROAS-STATELESS
+ dns-server {{ dns6 }}
+ domain-name {{ site.domain }}
+{%- endif %}
+!
+interface {{ trunk }}
+ description 802.1Q trunk to {{ peer }} {{ peer_port }} (router-on-a-stick)
+ no ip address
+ no shutdown
+!
+{%- for s in subifs %}
+interface {{ s.long }}
+ description {{ s.name }} gateway
+ encapsulation dot1Q {{ s.id }}
+ ip address {{ s.ip }} {{ s.mask }}
+ ipv6 address {{ s.ip6 }}/64
+ ipv6 address FE80::1 link-local
+{%- if s.dhcpv6 == 'stateless' %}
+ ipv6 nd other-config-flag
+ ipv6 dhcp server {{ s.pool6 }}
+{%- elif s.dhcpv6 == 'stateful' %}
+ ipv6 nd managed-config-flag
+ ipv6 nd prefix default no-autoconfig
+ ipv6 dhcp server {{ s.pool6 }}
+{%- endif %}
+!
+{%- endfor %}
+interface {{ trunk }}.{{ native }}
+ description native VLAN of the trunk: untagged frames land here, no addresses
+ encapsulation dot1Q {{ native }} native
+!
+end

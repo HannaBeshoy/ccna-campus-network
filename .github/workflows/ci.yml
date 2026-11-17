@@ -18,9 +18,11 @@ jobs:
           python -m campus paths > docs/PATHS.md
           python -m campus vlsm > docs/VLSM.md
           python -m campus connectivity > docs/CONNECTIVITY.md
-          git diff --exit-code configs docs/ADDRESSING.md docs/PATHS.md docs/VLSM.md docs/CONNECTIVITY.md
+          python -m campus roas --out configs/roas
+          python -m campus roas --doc > docs/ROUTER_ON_A_STICK.md
+          git diff --exit-code configs docs/ADDRESSING.md docs/PATHS.md docs/VLSM.md docs/CONNECTIVITY.md docs/ROUTER_ON_A_STICK.md
       - name: Every config passes the security policy
-        run: python -m campus lint configs/*.cfg
+        run: python -m campus lint configs/*.cfg configs/roas/*.cfg
       - run: python -m campus stp
       - name: Every VLAN reaches the dual-stack server in every failure scenario
         run: python -m campus paths

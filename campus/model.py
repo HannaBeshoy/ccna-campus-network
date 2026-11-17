@@ -314,6 +314,29 @@ def validate(net):
         if lan4.network.overlaps(summ) or lan6.network.overlaps(ipaddress.ip_network(r1["campus_summary"]["v6"])):
             p.append("the server LAN overlaps the campus")
 
+    ro = raw.get("router_on_a_stick")
+    if ro:
+        from .generate import MODELS
+        sw = ro["switch"]
+        if sw["model"] not in MODELS:
+            p.append(f"router-on-a-stick: unknown switch model {sw['model']}")
+        else:
+            ports = expand_ports(MODELS[sw["model"]]["ports"])
+            voice = {c["voice"] for s_ in accs for c in raw["switches"][s_]["access_ports"].values() if "voice" in c}
+            data = [v for v in net.routed_vlans if v.id not in voice]
+            fa = [x for x in ports if x != sw["trunk"] and x.startswith("Fa")]
+            if sw["trunk"] not in ports:
+                p.append(f"router-on-a-stick: {sw['trunk']} does not exist on a {sw['model']}")
+            if len(data) * sw["ports_per_vlan"] > len(fa):
+                p.append(f"router-on-a-stick: {len(data)} VLANs x {sw['ports_per_vlan']} ports do not fit "
+                         f"on the {len(fa)} access ports of a {sw['model']}")
+        mg = net.vlans.get(99)
+        if mg and mg.v4 and not 1 < sw["mgmt_host"] < mg.v4.num_addresses - 1:
+            p.append("router-on-a-stick: the switch's management address is outside VLAN 99")
+        taken = [ipaddress.ip_interface(raw["switches"][s_]["mgmt"]).ip for s_ in accs]
+        if mg and mg.v4 and mg.host(sw["mgmt_host"]) in taken:
+            p.append(f"router-on-a-stick: {mg.host(sw['mgmt_host'])} is already an access switch's address")
+
     w = raw.get("wlc")
     if w:
         if w["switch"] not in dists:

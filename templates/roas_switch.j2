@@ -1,0 +1,64 @@
+{% include "_base.j2" %}
+spanning-tree mode {{ stp.mode }}
+!
+{%- for v in vlans %}
+vlan {{ v.id }}
+ name {{ v.name }}
+{%- endfor %}
+!
+interface {{ trunk }}
+ description 802.1Q trunk to {{ peer }} {{ peer_port }} (router-on-a-stick)
+ switchport mode trunk
+ switchport trunk native vlan {{ native }}
+ switchport trunk allowed vlan {{ trunk_vlans }}
+ switchport nonegotiate
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+!
+interface Vlan{{ mgmt_vlan }}
+ description management
+ ip address {{ mgmt_ip }} {{ mgmt_mask }}
+ no shutdown
+ip default-gateway {{ mgmt_gw }}
+!
+ip dhcp snooping
+ip dhcp snooping vlan {{ user_vlans }}
+no ip dhcp snooping information option
+ip arp inspection vlan {{ user_vlans }}
+ip arp inspection validate src-mac dst-mac ip
+{%- if qos %}
+mls qos
+{%- endif %}
+!
+{%- for b in blocks %}
+interface {{ b.range }}
+ description {{ b.name }}{{ ", IP phone" if b.voice }}
+ switchport mode access
+ switchport access vlan {{ b.vlan }}
+{%- if b.voice %}
+ switchport voice vlan {{ b.voice }}
+ mls qos trust cos
+{%- endif %}
+ switchport nonegotiate
+ switchport port-security
+ switchport port-security maximum {{ b.max_mac }}
+ switchport port-security mac-address sticky
+ switchport port-security violation restrict
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+{%- if b.snoop %}
+ ip dhcp snooping limit rate 10
+{%- endif %}
+ no shutdown
+!
+{%- endfor %}
+{%- for u in unused %}
+interface {{ u }}
+ description unused
+ switchport mode access
+ switchport access vlan {{ native }}
+ shutdown
+{%- endfor %}
+!
+end

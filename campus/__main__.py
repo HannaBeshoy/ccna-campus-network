@@ -1,4 +1,4 @@
-"""python -m campus {check|generate|lint|diff|stp|plan|vlsm|trace|paths|connectivity|verify} - see README."""
+"""python -m campus {check|generate|lint|diff|stp|plan|vlsm|trace|paths|connectivity|roas|verify} - see README."""
 import argparse
 import os
 import sys
@@ -28,6 +28,10 @@ def main(argv=None):
     t.add_argument("-6", dest="v6", action="store_true", help="IPv6 (default IPv4)")
     t.add_argument("--down", action="append", default=[], help="DEVICE or DEVICE:INTERFACE, can repeat")
     sub.add_parser("paths", help="every VLAN to the server and back, in each failure scenario (Markdown)")
+    ro = sub.add_parser("roas", help="router-on-a-stick variant: configs/roas/*.cfg and its sheet (SRWE 4)")
+    ro.add_argument("--out", default="configs/roas")
+    ro.add_argument("--secrets", default="secrets.yaml")
+    ro.add_argument("--doc", action="store_true", help="print the Markdown sheet instead of writing configs")
     sub.add_parser("connectivity", help="the ping and tracert test plan with the expected answers (Markdown)")
     v = sub.add_parser("verify", help="check saved show-command output from the lab against the design")
     v.add_argument("captures", help="folder with <device>_<command>.txt files")
@@ -92,6 +96,17 @@ def main(argv=None):
     if a.cmd == "paths":
         from .routing import paths_report
         print(paths_report(net), end="")
+        return 0
+    if a.cmd == "roas":
+        from .roas import render_roas, report
+        if a.doc:
+            print(report(net), end="")
+            return 0
+        os.makedirs(a.out, exist_ok=True)
+        for name, text in render_roas(net, a.secrets).items():
+            with open(os.path.join(a.out, f"{name}.cfg"), "w") as f:
+                f.write(text)
+            print(f"{a.out}/{name}.cfg  {len(text.splitlines())} lines")
         return 0
     if a.cmd == "connectivity":
         from .connectivity import report
