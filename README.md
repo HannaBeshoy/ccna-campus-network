@@ -13,7 +13,8 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus stp`: which Port-channel is root, designated or blocking in every VLAN, before anything is cabled
 - [x] `python -m campus diff` and `verify`: compare a running-config and saved show commands with the design
 - [x] `python -m campus trace` and `paths`: every router's routing table built from the configs, packets followed hop by hop to the dual-stack server behind the ISP, with links or switches taken down ([docs/PATHS.md](docs/PATHS.md)); this found a real gap, fixed with a floating default route between the distribution switches
-- [x] **98 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] `python -m campus vlsm`: every subnet sized from the hosts it must hold plus growth, a VLSM allocation next to the /24 plan, /30 against /31 links ([docs/VLSM.md](docs/VLSM.md))
+- [x] **115 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -46,13 +47,14 @@ flowchart TB
 | 99 | MGMT | 10.20.99.0/24 | 2001:db8:acad:99::/64 | D1 |
 | 999 | PARKING | unused ports, native VLAN of every trunk | | |
 
-The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.md).
+The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.md), and the subnet sizes are checked against the expected number of hosts in [docs/VLSM.md](docs/VLSM.md).
 
 ## Design decisions
 
 | Decision | Why | Module |
 | --- | --- | --- |
 | The STP root and the HSRP active router of a VLAN are the same switch | otherwise frames to the gateway cross the inter-switch link for nothing; `primary:` in the YAML sets both, so they cannot drift apart | 5, 9 |
+| A /24 per VLAN with the VLAN number in the third octet, not VLSM | the /17 has room; a VLSM plan would fit in a /21, but 10.20.30.x = VLAN 30 is readable at a glance; every pool is checked to hold its hosts + 50% growth | ITN 11 |
 | Two distribution switches share the load: D1 for VLANs 10, 20, 99, D2 for 30, 40, 50 | both uplinks of every access switch carry traffic, each for some VLANs | 5, 9 |
 | Every link between switches is a 2-member LACP EtherChannel | a cable can fail without STP reconverging, and STP sees one link instead of two | 6 |
 | Routing on the Layer 3 switches (SVIs), routed uplinks to R1 | inter-VLAN traffic never leaves the distribution layer; no router-on-a-stick bottleneck | 4, 14 |
@@ -94,6 +96,7 @@ cp secrets.example.yaml secrets.yaml   # set real lab passwords, then:
 python -m campus generate --out build  # ready-to-paste configs in build/ (not committed)
 python -m campus lint configs/*.cfg
 python -m campus stp
+python -m campus vlsm                  # subnet sizes from the host counts
 python -m campus trace vlan10 server --down R1:G0/1   # follow a packet with D1's uplink down
 python -m campus paths                 # every VLAN to the server, five failure scenarios
 python -m campus diff A1 saved_running_config.txt
@@ -108,8 +111,8 @@ network.yaml        the design
 campus/             model and checks, generator, policy lint, running-config diff, STP prediction, routing simulator, lab verifier
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2)
-docs/               project guide (module by module), addressing plan, end-to-end paths, Packet Tracer steps, lab-day test sheet
-tests/              98 tests; fixtures/lab holds hand-written show outputs in IOS format
+docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, Packet Tracer steps, lab-day test sheet
+tests/              115 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 
