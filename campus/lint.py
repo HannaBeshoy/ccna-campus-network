@@ -1,4 +1,4 @@
-"""lint.py - the security policy of modules 10 and 11, checked on any IOS configuration file.
+"""lint.py - the security policy of SRWE modules 10 and 11 and ITN 16.4, checked on any IOS configuration file.
 
 Works on the generated configs and on a running-config saved from a real switch, so it also
 finds what someone changed by hand on the lab day.

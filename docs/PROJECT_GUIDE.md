@@ -4,7 +4,7 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 
 | Module | Topic | Where in the project |
 | ---: | --- | --- |
-| 1 | basic device configuration, SSH | `_base.j2`: hostname, secrets, SSH v2, vty lines; SVI 99 on the access switches |
+| 1 | basic device configuration, SSH | `_base.j2`: hostname, secrets, SSH v2, vty lines; SVI 99 on the access switches; ITN 16 hardening (password length, login blocking, idle timeout) |
 | 2 | switching concepts | why the access layer floods unknown unicast and why VLANs split broadcast domains |
 | 3 | VLANs, trunks, DTP | `vlan` blocks, every trunk `switchport nonegotiate`, native VLAN 999; voice VLAN 50 with CoS trust on the staff ports |
 | 4 | inter-VLAN routing | SVIs on D1/D2 with `ip routing`; routed uplinks (`no switchport`) to R1 |
@@ -28,6 +28,8 @@ Writing five configurations by hand, the same VLAN list ends up typed ten times 
 ## 2. Basic configuration and SSH (module 1)
 
 Every device gets the same base: `no ip domain-lookup` (a mistyped command does not hang trying to resolve it), `service password-encryption`, an `enable secret` and a local user with `secret` (hashed, not reversible), the RSA key (`crypto key generate rsa general-keys modulus 2048`, needed before SSH works), `ip ssh version 2`, and vty lines with `transport input ssh` and `login local`. The access switches are managed through an SVI in VLAN 99 with `ip default-gateway 10.20.99.1`, because a Layer 2 switch does not route.
+
+**Hardening (ITN 16.4).** Three more lines on every device. `security passwords min-length 10` makes IOS refuse shorter passwords, so `secrets.yaml` is checked before anything is generated. `login block-for 120 attempts 3 within 60` stops password guessing: after three failed logins within a minute, the device accepts no logins for two minutes (`show login` shows the state). `login on-failure log` and `login on-success log` write every attempt to the log. Console and vty sessions end after 10 idle minutes (`exec-timeout 10 0`), so a forgotten session does not stay open. The lint checks all of this on a saved running-config too.
 
 ## 3. VLANs and trunks (modules 2 and 3)
 
@@ -118,7 +120,7 @@ The first run found a gap. With D1's uplink down, R1's floating route brought re
 | --- | --- |
 | `check` | the design: subnets overlap? gateway outside its subnet? a port in two roles, or forgotten? EtherChannel ends with different member counts? each access switch with an uplink to both distribution switches? STP priorities valid? reservation outside the pool? |
 | `generate` | the five configurations from Jinja2 templates; passwords from `secrets.yaml` or placeholders |
-| `lint` | the module 10/11 policy on any configuration file |
+| `lint` | the module 10/11 policy and the ITN 16 hardening on any configuration file |
 | `diff` | what a saved running-config is missing compared with the design (it understands that a running-config lists interfaces one by one, hides secrets and omits `no shutdown`) |
 | `stp` | the spanning-tree prediction |
 | `plan` | the addressing plan, docs/ADDRESSING.md |
