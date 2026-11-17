@@ -66,6 +66,22 @@ Interface           Role Sts Cost      Prio.Nbr Type
 Po11                Altn BLK 12        128.65   P2p
 Po12                Root FWD 12        128.66   P2p
 
+VLAN0050
+  Spanning tree enabled protocol rstp
+  Root ID    Priority    24626
+             Address     0002.17aa.bb02
+             Cost        12
+             Port        66 (Port-channel12)
+
+  Bridge ID  Priority    32818  (priority 32768 sys-id-ext 50)
+             Address     000a.f3c1.2b11
+
+Interface           Role Sts Cost      Prio.Nbr Type
+------------------- ---- --- --------- -------- --------------------------------
+Fa0/1               Desg FWD 19        128.1    P2p Edge
+Po11                Altn BLK 12        128.65   P2p
+Po12                Root FWD 12        128.66   P2p
+
 VLAN0099
   Spanning tree enabled protocol rstp
   Root ID    Priority    24675

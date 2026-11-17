@@ -52,7 +52,7 @@ def test_port_ranges():
     (lambda r: r["vlans"][20].update(v4="10.20.10.128/25"), "overlaps"),
     (lambda r: r["vlans"][30].update(primary="A1"), "not a distribution switch"),
     (lambda r: r["vlans"][40].update(v6="2001:db8:acad:40::/80"), "must be a /64"),
-    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/9-16"].update(vlan=50), "does not exist"),
+    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/9-16"].update(vlan=60), "does not exist"),
     (lambda r: r["switches"]["A1"]["unused"].append("Fa0/1"), "listed as unused"),
     (lambda r: r["switches"]["A2"]["unused"].remove("Fa0/20"), "not assigned"),
     (lambda r: r["etherchannels"][1].update(b_ports="Fa0/21-23"), "different numbers of members"),
@@ -97,7 +97,7 @@ def test_hsrp_and_stp_root_follow_the_primary(cfg):
     assert not any("priority" in l for l in d2["interface vlan10"] if l.startswith("standby 10 "))
     assert "standby 30 priority 110" in d2["interface vlan30"]
     assert "spanning-tree vlan 10,20,99 priority 24576" in d1[""]
-    assert "spanning-tree vlan 30,40 priority 24576" in d2[""]
+    assert "spanning-tree vlan 30,40,50 priority 24576" in d2[""]
     assert "spanning-tree vlan 10,20,99 priority 28672" in d2[""]
 
 
@@ -163,7 +163,7 @@ def test_generated_configs_pass_the_policy(cfg):
     (" switchport nonegotiate\n channel-group 11", " channel-group 11", "still sends DTP"),
     (" transport input ssh", " transport input ssh telnet", "SSH only"),
     ("ip ssh version 2\n", "", "SSH version 2"),
-    ("ip dhcp snooping vlan 10,20,30,40\n", "", "DHCP snooping"),
+    ("ip dhcp snooping vlan 10,20,30,40,50\n", "", "DHCP snooping"),
     (" switchport access vlan 999\n shutdown", " shutdown", "unused port left in VLAN 1"),
 ])
 def test_lint_finds_a_weakened_switch(cfg, old, new, expected):
@@ -193,8 +193,9 @@ def test_diff_ignores_how_ios_prints_a_running_config(cfg):
     assert missing == {}, missing
 
 
-BODY_A1_1_8 = [" description staff desk", " switchport access vlan 10", " switchport mode access",
-               " switchport nonegotiate", " switchport port-security maximum 2", " switchport port-security",
+BODY_A1_1_8 = [" description staff desk, IP phone", " switchport access vlan 10", " switchport mode access",
+               " switchport voice vlan 50", " mls qos trust cos",
+               " switchport nonegotiate", " switchport port-security maximum 3", " switchport port-security",
                " switchport port-security violation restrict", " switchport port-security mac-address sticky",
                " switchport port-security mac-address sticky 0011.2233.4455 vlan 10",
                " spanning-tree portfast", " spanning-tree bpduguard enable", " ip dhcp snooping limit rate 10"]
@@ -240,7 +241,7 @@ def test_parsers():
 def test_verify_passes_on_a_good_capture(net):
     ok, lines = verify_folder(net, FIX)
     assert ok, [l for l in lines if l.startswith("FAIL")]
-    assert lines[-1] == "40 passed, 0 failed"
+    assert lines[-1] == "46 passed, 0 failed"
 
 
 @pytest.mark.parametrize("file, old, new, expected", [

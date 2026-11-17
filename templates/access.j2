@@ -12,12 +12,20 @@ ip dhcp snooping vlan {{ user_vlans }}
 no ip dhcp snooping information option
 ip arp inspection vlan {{ user_vlans }}
 ip arp inspection validate src-mac dst-mac ip
+{%- if qos %}
+! honour the CoS the IP phones put in the 802.1Q tag of the voice VLAN
+mls qos
+{%- endif %}
 !
 {%- for p in ports %}
 interface {{ p.range }}
  description {{ p.desc }}
  switchport mode access
  switchport access vlan {{ p.vlan }}
+{%- if p.voice %}
+ switchport voice vlan {{ p.voice }}
+ mls qos trust cos
+{%- endif %}
  switchport nonegotiate
  switchport port-security
  switchport port-security maximum {{ p.max_mac }}

@@ -191,6 +191,13 @@ def validate(net):
         for spec, cfg in s["access_ports"].items():
             if cfg["vlan"] not in net.vlans or net.vlans[cfg["vlan"]].v4 is None:
                 p.append(f"{sw} {spec}: VLAN {cfg['vlan']} does not exist or is the parking VLAN")
+            if "voice" in cfg:
+                if cfg["voice"] not in net.vlans or net.vlans[cfg["voice"]].v4 is None:
+                    p.append(f"{sw} {spec}: voice VLAN {cfg['voice']} does not exist or is the parking VLAN")
+                elif cfg["voice"] == cfg["vlan"]:
+                    p.append(f"{sw} {spec}: the voice VLAN must differ from the data VLAN")
+                if cfg.get("max_mac", 3) < 2:
+                    p.append(f"{sw} {spec}: a phone and a PC need port security maximum 2 or more")
             for port in expand_ports(spec):
                 if port in used:
                     p.append(f"{sw} {port} is used twice")

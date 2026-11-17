@@ -142,13 +142,16 @@ def access_ctx(net, name, secrets):
     mvlan = next(v for v in net.routed_vlans if mgmt.ip in v.v4)
     ports = []
     for spec, p in s["access_ports"].items():
-        ports.append({"range": range_text(spec), "desc": p["desc"], "vlan": p["vlan"],
-                      "max_mac": p.get("max_mac", 2), "violation": p.get("violation", "restrict"),
+        voice = p.get("voice")
+        ports.append({"range": range_text(spec), "desc": p["desc"], "vlan": p["vlan"], "voice": voice,
+                      # PC + phone; the phone's MAC is learned in the data and in the voice VLAN
+                      "max_mac": p.get("max_mac", 3 if voice else 2), "violation": p.get("violation", "restrict"),
                       "snoop": net.vlans[p["vlan"]].dhcp})
     ctx = common(net, name, s["model"], secrets, 15)
     ctx.update(switch_common(net, name))
     ctx.update({"mgmt": mgmt, "mgmt_vlan": mvlan.id, "mgmt_gw": mvlan.host(net.raw["addressing"]["gateway_host"]),
-                "user_vlans": vlan_list(v.id for v in net.routed_vlans if v.dhcp), "ports": ports})
+                "user_vlans": vlan_list(v.id for v in net.routed_vlans if v.dhcp), "ports": ports,
+                "qos": any(p["voice"] for p in ports)})
     return ctx
 
 
