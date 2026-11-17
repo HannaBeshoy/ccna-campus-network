@@ -1,4 +1,4 @@
-"""python -m campus {check|generate|lint|diff|stp|plan|vlsm|trace|paths|verify} - see README."""
+"""python -m campus {check|generate|lint|diff|stp|plan|vlsm|trace|paths|connectivity|verify} - see README."""
 import argparse
 import os
 import sys
@@ -28,6 +28,7 @@ def main(argv=None):
     t.add_argument("-6", dest="v6", action="store_true", help="IPv6 (default IPv4)")
     t.add_argument("--down", action="append", default=[], help="DEVICE or DEVICE:INTERFACE, can repeat")
     sub.add_parser("paths", help="every VLAN to the server and back, in each failure scenario (Markdown)")
+    sub.add_parser("connectivity", help="the ping and tracert test plan with the expected answers (Markdown)")
     v = sub.add_parser("verify", help="check saved show-command output from the lab against the design")
     v.add_argument("captures", help="folder with <device>_<command>.txt files")
     a = ap.parse_args(argv)
@@ -91,6 +92,10 @@ def main(argv=None):
     if a.cmd == "paths":
         from .routing import paths_report
         print(paths_report(net), end="")
+        return 0
+    if a.cmd == "connectivity":
+        from .connectivity import report
+        print(report(net), end="")
         return 0
     if a.cmd == "verify":
         from .verify import verify_folder
