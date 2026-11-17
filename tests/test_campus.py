@@ -69,6 +69,9 @@ def test_port_ranges():
     (lambda r: r["routers"]["R1"]["interfaces"]["G0/1"].update(lla="2001:db8::1"), "not a link-local address"),
     (lambda r: r["routers"]["R1"]["host_routes"][0].update(dest6="2001:db8:beef::20"), "not in a campus VLAN"),
     (lambda r: r["vlans"][20].update(dhcpv6="managed"), "must be stateless or stateful"),
+    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(voice=10), "must differ from the data VLAN"),
+    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(voice=999), "voice VLAN 999 does not exist"),
+    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(max_mac=1), "maximum 2 or more"),
     (lambda r: r["vlans"].update({1: {"name": "default", "v4": "10.20.1.0/24", "v6": "2001:db8:acad:1::/64", "primary": "D1"}}),
      "VLAN 1 must not carry traffic"),
 ])
@@ -387,3 +390,37 @@ def test_no_dhcpv6_pool_when_every_vlan_uses_slaac(net):
     n = changed(net, lambda r: [v.pop("dhcpv6", None) for v in r["vlans"].values()])
     r1 = render_all(n)["R1"]
     assert "ipv6 dhcp" not in r1
+
+
+# --- voice VLAN (SRWE 3.2.6 - 3.3.7) -------------------------------------------------------------
+def test_staff_ports_carry_data_and_voice(cfg):
+    a1, a2 = parse(cfg["A1"]), parse(cfg["A2"])
+    for sw, ports in ((a1, range(1, 9)), (a2, (17, 18))):
+        for n in ports:
+            body = sw[f"interface fastethernet0/{n}"]
+            assert "switchport access vlan 10" in body and "switchport voice vlan 50" in body
+            assert "mls qos trust cos" in body and "switchport port-security maximum 3" in body
+    assert "mls qos" in a1[""] and "mls qos" in a2[""]
+    assert "switchport voice vlan 50" not in a1["interface fastethernet0/9"]          # test stations: no phone
+    assert "switchport port-security maximum 2" in a1["interface fastethernet0/9"]
+
+
+def test_voice_vlan_is_routed_and_served(cfg):
+    assert "ip dhcp pool voice" in parse(cfg["R1"])
+    d2 = parse(cfg["D2"])
+    assert "standby 50 priority 110" in d2["interface vlan50"]
+    assert "ip helper-address 10.20.254.1" in d2["interface vlan50"]
+    assert "switchport trunk allowed vlan 10,20,30,40,50,99" in d2["interface port-channel12"]
+    assert "ip dhcp snooping vlan 10,20,30,40,50" in parse(cfg["A1"])[""]
+
+
+def test_no_qos_without_phones(net):
+    n = changed(net, lambda r: [p.pop("voice", None) for sw in ("A1", "A2")
+                                for p in r["switches"][sw]["access_ports"].values()])
+    assert "mls qos" not in render_all(n)["A1"]
+
+
+def test_phones_reach_the_server(net):
+    for family in (4, 6):
+        ok1, ok2, h1, h2 = round_trip(net, 50, family)
+        assert ok1 and ok2 and h1[0].endswith("gateway D2")
