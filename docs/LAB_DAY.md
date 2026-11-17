@@ -50,6 +50,7 @@ Record each result (and the command output) in `docs/lab_day.md`.
 | 10 | rogue DHCP | a laptop running a DHCP server on Fa0/3 | clients still get R1's addresses; snooping drops the offers |
 | 11 | DAI | a static IP that is not in the snooping table, then ping | ARP is dropped (`show ip arp inspection statistics`) |
 | 12 | SSH only | `telnet 10.20.99.11` and `ssh -l admin 10.20.99.11` | telnet refused, SSH works |
+| 12b | voice VLAN | an IP phone (or a PC set to tag VLAN 50) on A1 Fa0/2 with a laptop behind it; `show interfaces fa0/2 switchport`, `show mac address-table interface fa0/2` | Voice VLAN: 50; the phone gets a 10.20.50.x address, the laptop 10.20.10.x; the phone's MAC is listed in VLAN 10 and 50 |
 | 13 | ESP32 | the sensor node (esp32-network-node project) on Fa0/17 with its MAC in the reservation | gets 10.20.30.21; the SNMP collector in VLAN 10 reads it |
 
 ## Afterwards

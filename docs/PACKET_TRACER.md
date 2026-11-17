@@ -15,6 +15,7 @@ About 1.5 hours. The result, `packet-tracer/campus.pkt`, goes into the repositor
 | WLC1 | WLC-2504 | |
 | AP | LAP-PT or 3702i | |
 | PCs, a server | PC-PT, Server-PT | the server at 10.20.99.53 (DNS) and 10.20.99.30 (RADIUS), in VLAN 99 |
+| IP phone | IP Phone (7960) | on A1 Fa0/2, with a PC on the phone's switch port; plug in its power adapter (Physical tab) |
 | ESP32 stand-in | PC-PT (or an IoT device) | on A1 Fa0/17; Packet Tracer has no ESP32 |
 
 ## 2. Cables (15 min)
