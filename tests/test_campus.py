@@ -11,6 +11,7 @@ from campus.diff import diff_configs
 from campus.generate import render_all
 from campus.iosconf import expand_range, parse
 from campus.lint import lint_text
+from campus.routing import Lab, round_trip
 from campus.stp import predict
 from campus.verify import parse_etherchannel, parse_routes, parse_spanning_tree, verify_folder
 
@@ -256,3 +257,48 @@ def test_verify_finds_a_problem(net, tmp_path, file, old, new, expected):
     ok, lines = verify_folder(net, str(d))
     assert not ok
     assert any(l.startswith("FAIL") and expected in l for l in lines), [l for l in lines if l.startswith("FAIL")]
+
+
+# --- routing tables and end-to-end paths --------------------------------------------------------
+def test_routing_table_of_r1(net):
+    t = {(str(p), ad, str(h) if h else None) for p, ad, h, _, _ in Lab(net).devices["R1"].table()}
+    assert ("0.0.0.0/0", 1, "203.0.113.1") in t
+    assert ("10.20.0.0/17", 1, "10.20.255.2") in t
+    assert not any(p == "10.20.0.0/17" and ad == 10 for p, ad, _ in t)       # the floating route waits
+    assert ("2001:db8:acad::/56", 1, "2001:db8:acad:ff01::2") in t
+
+
+def test_floating_route_replaces_the_primary_when_its_link_goes_down(net):
+    t = {(str(p), ad, str(h) if h else None) for p, ad, h, _, _ in Lab(net, ["R1:G0/1"]).devices["R1"].table()}
+    assert ("10.20.0.0/17", 10, "10.20.255.6") in t
+    assert ("2001:db8:acad::/56", 10, "2001:db8:acad:ff02::2") in t
+    assert not any(p == "10.20.255.0/30" for p, _, _ in t)                   # the connected route is gone too
+
+
+def test_longest_match_beats_the_summary(net):
+    ok, hops = Lab(net).trace("server", "10.20.99.20")
+    assert "R1: 10.20.99.20/32 [1/0] via 10.20.255.6" in " ".join(hops)
+
+
+@pytest.mark.parametrize("vlan", [10, 20, 30, 40, 99])
+@pytest.mark.parametrize("family", [4, 6])
+def test_every_vlan_reaches_the_server_and_back(net, vlan, family):
+    ok1, ok2, h1, h2 = round_trip(net, vlan, family)
+    assert ok1 and ok2, (h1, h2)
+    assert h1[1].startswith(net.vlans[vlan].primary)                         # leaves through its HSRP gateway
+
+
+@pytest.mark.parametrize("dead", ["D1", "D2"])
+def test_a_distribution_switch_can_fail(net, dead):
+    for v in net.routed_vlans:
+        for family in (4, 6):
+            ok1, ok2, h1, h2 = round_trip(net, v.id, family, [dead])
+            assert ok1 and ok2, (dead, v.id, family, h1, h2)
+            assert dead not in " ".join(h1 + h2)
+
+
+def test_trace_reports_a_missing_route(net):
+    lab = Lab(net, ["ISP:G0/1"])
+    ok, hops = lab.trace("vlan10", "server")
+    assert not ok
+    assert hops[-1] == "ISP: no route to 64.100.1.10 - dropped"
