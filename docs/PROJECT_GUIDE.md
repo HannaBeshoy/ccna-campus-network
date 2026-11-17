@@ -45,7 +45,7 @@ D1 and D2 are Layer 3 switches: `ip routing` and one SVI (`interface VlanN`) per
 
 ## 5. Rapid PVST+ (module 5)
 
-With two uplinks per access switch there are loops, so spanning tree must block one path per VLAN. The design chooses which: D1 has priority 24576 (root) for VLANs 10, 20, 99 and 28672 (secondary) for 30 and 40; D2 the other way round. The access switches keep the default 32768. `python -m campus stp` computes the result (README). Rapid PVST+ instead of the original 802.1D because it converges in about a second instead of 30 to 50, and one tree per VLAN is what lets the two distribution switches share the load.
+With two uplinks per access switch there are loops, so spanning tree must block one path per VLAN. The design chooses which: D1 has priority 24576 (root) for VLANs 10, 20, 99 and 28672 (secondary) for 30, 40 and 50; D2 the other way round. The access switches keep the default 32768. `python -m campus stp` computes the result (README). Rapid PVST+ instead of the original 802.1D because it converges in about a second instead of 30 to 50, and one tree per VLAN is what lets the two distribution switches share the load.
 
 ## 6. EtherChannel (module 6)
 
@@ -53,7 +53,7 @@ Each pair of switches is connected by two cables bundled with LACP (`channel-gro
 
 ## 7. DHCPv4 (module 7)
 
-R1 is the DHCP server for VLANs 10, 20, 30 and 40: one pool each, with `.1` to `.20` excluded (gateways, switches, printers). The clients are not on R1's subnets, so each SVI has `ip helper-address 10.20.254.1`: the switch turns the client's broadcast into a unicast to R1 and writes its own address (giaddr) into it, which is how R1 knows which pool to use. The ESP32 sensor node gets a fixed address from a manual binding (`host 10.20.30.21` + `hardware-address`; its real MAC goes into `network.yaml` on the lab day).
+R1 is the DHCP server for VLANs 10, 20, 30, 40 and 50: one pool each, with `.1` to `.20` excluded (gateways, switches, printers). The clients are not on R1's subnets, so each SVI has `ip helper-address 10.20.254.1`: the switch turns the client's broadcast into a unicast to R1 and writes its own address (giaddr) into it, which is how R1 knows which pool to use. The ESP32 sensor node gets a fixed address from a manual binding (`host 10.20.30.21` + `hardware-address`; its real MAC goes into `network.yaml` on the lab day).
 
 ## 8. IPv6: SLAAC, stateless and stateful DHCPv6 (module 8)
 
