@@ -25,6 +25,8 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 
 Writing five configurations by hand, the same VLAN list ends up typed ten times and the same mistake made in one place. Here the design lives in `network.yaml` and the configurations are generated, so a VLAN added in one line appears on every trunk, every switch and the router's DHCP pools. CI regenerates the configurations on every push and fails if the committed files differ: the repository can never show configurations that do not match the design.
 
+**Subnet sizes (ITN 11).** Each VLAN in `network.yaml` says how many devices the real site expects (`hosts`), and `addressing.growth_percent` adds a margin (50%). `python -m campus vlsm` ([VLSM.md](VLSM.md)) does the ITN 11 calculation: hosts + growth + 3 gateway addresses, the smallest prefix whose 2^n - 2 holds them, then a VLSM allocation of the campus block, biggest subnet first so each starts on its own boundary. It needs only a /21 for the whole campus. The design still gives every VLAN a /24 with the VLAN number in the third octet, because the /17 has room to spare and a readable plan is worth more here than saved addresses; the check makes sure each /24's DHCP pool really holds its hosts plus growth. VLAN 30 (150 sensors) is the one close to full. The same report compares /30 and /31 point-to-point links, and explains why IPv6 needs no VLSM (every VLAN a /64, subnet ID = VLAN number).
+
 ## 2. Basic configuration and SSH (module 1)
 
 Every device gets the same base: `no ip domain-lookup` (a mistyped command does not hang trying to resolve it), `service password-encryption`, an `enable secret` and a local user with `secret` (hashed, not reversible), the RSA key (`crypto key generate rsa general-keys modulus 2048`, needed before SSH works), `ip ssh version 2`, and vty lines with `transport input ssh` and `login local`. The access switches are managed through an SVI in VLAN 99 with `ip default-gateway 10.20.99.1`, because a Layer 2 switch does not route.
@@ -124,6 +126,7 @@ The first run found a gap. With D1's uplink down, R1's floating route brought re
 | `diff` | what a saved running-config is missing compared with the design (it understands that a running-config lists interfaces one by one, hides secrets and omits `no shutdown`) |
 | `stp` | the spanning-tree prediction |
 | `plan` | the addressing plan, docs/ADDRESSING.md |
+| `vlsm` | subnet sizes from the host counts, a VLSM allocation next to the /24 plan, /30 against /31, docs/VLSM.md |
 | `trace` | one packet hop by hop through the routing tables, with links or devices down |
 | `paths` | every VLAN to the dual-stack server and back in five failure scenarios, docs/PATHS.md |
 | `verify` | the lab-day show outputs against the design: VLANs, EtherChannels, HSRP states, STP roles, R1's routes |

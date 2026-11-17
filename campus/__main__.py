@@ -1,4 +1,4 @@
-"""python -m campus {check|generate|verify|stp|lint} - see README."""
+"""python -m campus {check|generate|lint|diff|stp|plan|vlsm|trace|paths|verify} - see README."""
 import argparse
 import os
 import sys
@@ -21,6 +21,7 @@ def main(argv=None):
     d.add_argument("running_config")
     sub.add_parser("stp", help="predict every port's spanning-tree role per VLAN")
     sub.add_parser("plan", help="print the addressing plan (Markdown)")
+    sub.add_parser("vlsm", help="size every subnet from its hosts, VLSM against the /24 plan (Markdown)")
     t = sub.add_parser("trace", help="follow a packet hop by hop through the generated configurations")
     t.add_argument("src", help="vlanN, server or an address")
     t.add_argument("dst", help="vlanN, server or an address")
@@ -76,6 +77,10 @@ def main(argv=None):
     if a.cmd == "plan":
         from .plan import plan
         print(plan(net), end="")
+        return 0
+    if a.cmd == "vlsm":
+        from .vlsm import report
+        print(report(net), end="")
         return 0
     if a.cmd == "trace":
         from .routing import Lab
