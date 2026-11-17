@@ -7,7 +7,7 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 | 1 | basic device configuration, SSH | `_base.j2`: hostname, secrets, SSH v2, vty lines; SVI 99 on the access switches; ITN 16 hardening (password length, login blocking, idle timeout) |
 | 2 | switching concepts | why the access layer floods unknown unicast and why VLANs split broadcast domains |
 | 3 | VLANs, trunks, DTP | `vlan` blocks, every trunk `switchport nonegotiate`, native VLAN 999; voice VLAN 50 with CoS trust on the staff ports |
-| 4 | inter-VLAN routing | SVIs on D1/D2 with `ip routing`; routed uplinks (`no switchport`) to R1 |
+| 4 | inter-VLAN routing | SVIs on D1/D2 with `ip routing`; routed uplinks (`no switchport`) to R1; the router-on-a-stick variant from `python -m campus roas` |
 | 5 | STP | `spanning-tree mode rapid-pvst`, priorities per VLAN; `python -m campus stp` |
 | 6 | EtherChannel | 5 LACP bundles, `channel-group N mode active` |
 | 7 | DHCPv4 | pools on R1, `ip helper-address` on the SVIs, a manual binding for the ESP32 |
@@ -46,6 +46,8 @@ Six VLANs separate staff PCs, test stations, sensors, wireless clients, IP phone
 ## 4. Inter-VLAN routing (module 4)
 
 D1 and D2 are Layer 3 switches: `ip routing` and one SVI (`interface VlanN`) per VLAN, each the gateway of its subnet. This is the module's third method, after legacy routing (one router port per VLAN) and router-on-a-stick (one trunk to a router): the routing happens in the switch hardware, at wire speed. The links to R1 are routed ports (`no switchport` with an IP address), not trunks.
+
+**Router-on-a-stick, generated too.** `python -m campus roas` writes [configs/roas/](../configs/roas/) and [ROUTER_ON_A_STICK.md](ROUTER_ON_A_STICK.md): R1-ROAS with one subinterface per VLAN on a single trunk (`interface GigabitEthernet0/1.10`, `encapsulation dot1Q 10`, the gateway .1), the native VLAN on its own subinterface (`encapsulation dot1Q 999 native`, no address), and S1-ROAS, a 2960 with a block of access ports per VLAN. The same VLANs, subnets, DHCP pools and IPv6 methods come from `network.yaml`; the router serves DHCP itself because it sits on every subnet, so the relays disappear. It is the module's lab exercise, and the fallback if the lab has no Layer 3 switch. It also shows why the design does not use it: all inter-VLAN traffic crosses one trunk twice, and one router is the only gateway.
 
 ## 5. Rapid PVST+ (module 5)
 
@@ -135,6 +137,7 @@ The extended pings (ITN 17.4.3) test return paths: `ping 64.100.1.10 source Loop
 | `vlsm` | subnet sizes from the host counts, a VLSM allocation next to the /24 plan, /30 against /31, docs/VLSM.md |
 | `trace` | one packet hop by hop through the routing tables, with links or devices down |
 | `paths` | every VLAN to the dual-stack server and back in five failure scenarios, docs/PATHS.md |
+| `roas` | the router-on-a-stick variant (one router, one 2960) from the same model, configs/roas/ and docs/ROUTER_ON_A_STICK.md |
 | `connectivity` | the ping and tracert plan: what each VLAN's host must see hop by hop, the failover paths, extended pings from the routers, docs/CONNECTIVITY.md |
 | `verify` | the lab-day show outputs against the design: VLANs, EtherChannels, HSRP states, STP roles, R1's routes |
 
