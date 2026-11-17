@@ -11,7 +11,7 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 | 5 | STP | `spanning-tree mode rapid-pvst`, priorities per VLAN; `python -m campus stp` |
 | 6 | EtherChannel | 5 LACP bundles, `channel-group N mode active` |
 | 7 | DHCPv4 | pools on R1, `ip helper-address` on the SVIs, a manual binding for the ESP32 |
-| 8 | SLAAC and DHCPv6 | IPv6 /64 per VLAN, SLAAC; VLAN 30 also stateless DHCPv6 (O flag + relay); manual link-local addresses (8.1.2) |
+| 8 | SLAAC and DHCPv6 | all three methods: SLAAC only (VLANs 10, 40, 99), stateless DHCPv6 (VLAN 30, O flag), stateful DHCPv6 (VLAN 20, M flag, A flag off); relays to R1; manual link-local addresses |
 | 9 | FHRP, HSRP | HSRP version 2 per VLAN, IPv4 and IPv6 groups, priority 110 + preempt on the primary |
 | 10 | LAN security concepts | the threats the access-port settings answer |
 | 11 | switch security configuration | port security, unused ports, VLAN hopping, DHCP snooping, DAI, PortFast, BPDU guard |
@@ -53,9 +53,19 @@ Each pair of switches is connected by two cables bundled with LACP (`channel-gro
 
 R1 is the DHCP server for VLANs 10, 20, 30 and 40: one pool each, with `.1` to `.20` excluded (gateways, switches, printers). The clients are not on R1's subnets, so each SVI has `ip helper-address 10.20.254.1`: the switch turns the client's broadcast into a unicast to R1 and writes its own address (giaddr) into it, which is how R1 knows which pool to use. The ESP32 sensor node gets a fixed address from a manual binding (`host 10.20.30.21` + `hardware-address`; its real MAC goes into `network.yaml` on the lab day).
 
-## 8. IPv6: SLAAC and stateless DHCPv6 (module 8)
+## 8. IPv6: SLAAC, stateless and stateful DHCPv6 (module 8)
 
-Every VLAN has a /64 and every SVI an IPv6 address, so routers send Router Advertisements and hosts build their own address with SLAAC. VLAN 30 also sets `ipv6 nd other-config-flag` (the O flag): "build your address yourself, but ask DHCPv6 for the other information" (the DNS server). That is stateless DHCPv6; the SVI relays the request to R1 (`ipv6 dhcp relay destination`), whose pool `IOT-STATELESS` has only the DNS server and domain. The SVIs also get a fixed link-local address (`fe80::2` on D1, `fe80::3` on D2), which makes `show` output and neighbor tables readable.
+Every VLAN has a /64 and every SVI an IPv6 address, so routers send Router Advertisements. Three flags in the RA tell a host how to get its address, and the design uses all three methods:
+
+| Method | VLANs | RA flags | SVI lines | The host |
+| --- | --- | --- | --- | --- |
+| SLAAC only | 10 STAFF, 40 WIFI, 99 MGMT | A = 1, O = 0, M = 0 | none extra | builds its address from the prefix; DNS must come another way (RDNSS or by hand) |
+| SLAAC + stateless DHCPv6 | 30 IOT | A = 1, O = 1 | `ipv6 nd other-config-flag`, relay | builds its address, asks DHCPv6 only for the DNS server and domain (Information-Request) |
+| stateful DHCPv6 | 20 PRODUCTION | A = 0, M = 1 | `ipv6 nd managed-config-flag`, `ipv6 nd prefix default no-autoconfig`, relay | gets its address from the server (Solicit, Advertise, Request, Reply); the server records who has which address |
+
+Clearing the A flag matters: with only the M flag a host builds a SLAAC address too and ends up with two. In every case the default gateway still comes from the RA, never from DHCPv6.
+
+The SVIs relay to R1 (`ipv6 dhcp relay destination 2001:db8:acad:254::1`). R1 has one pool, `CAMPUS-DHCPV6`, bound to both interfaces the relayed requests arrive on. It holds the DNS server and domain for everyone, and `address prefix 2001:db8:acad:20::/64` with `link-address 2001:db8:acad:20::/64`: the relay puts the VLAN's address into the request, and the server hands out addresses only to requests from that link. The SVIs also get a fixed link-local address (`FE80::2` on D1, `FE80::3` on D2), which makes `show` output and neighbor tables readable.
 
 ## 9. HSRP (module 9)
 
