@@ -13,7 +13,7 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus stp`: which Port-channel is root, designated or blocking in every VLAN, before anything is cabled
 - [x] `python -m campus diff` and `verify`: compare a running-config and saved show commands with the design
 - [x] `python -m campus trace` and `paths`: every router's routing table built from the configs, packets followed hop by hop to the dual-stack server behind the ISP, with links or switches taken down ([docs/PATHS.md](docs/PATHS.md)); this found a real gap, fixed with a floating default route between the distribution switches
-- [x] **68 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] **75 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -59,7 +59,8 @@ The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.
 | R1 reaches the campus by one summary route, with a floating static (AD 10) through D2 | one line instead of five, and an automatic backup when D1's link fails | 15 |
 | Each distribution switch has a floating default route (AD 10) through the other one over VLAN 99 | HSRP does not notice an uplink failure, so the switch stays the gateway; without this route its VLANs lose the outside (found by `campus paths`) | 9, 15 |
 | An ISP router and a dual-stack server outside the campus, with static routes back | the default routes can be tested end to end with ping and tracert in IPv4 and IPv6; NAT comes in the next course | 15, 16 |
-| A /32 host route to the WLC through D2 | longest match beats the summary, so controller traffic goes straight to the switch it hangs off | 14, 15 |
+| A /32 and a /128 host route to the WLC through D2 | longest match beats the summary, so controller traffic goes straight to the switch it hangs off | 14, 15 |
+| IPv6 static routes are fully specified: exit interface + the neighbour's manual link-local address | a link-local address is unique only on its link; the next hop stays the same if global prefixes are renumbered | 8, 15 |
 | Native VLAN 999 on every trunk, DTP off, unused ports shut down in VLAN 999 | stops VLAN hopping (double tagging and switch spoofing) | 10, 11 |
 | Port security (sticky), PortFast + BPDU guard, DHCP snooping with rate limit, Dynamic ARP Inspection on every access port | MAC flooding, rogue switches, rogue DHCP servers and ARP spoofing are each blocked by one of these | 11 |
 | SSH version 2 only, local users with `secret`, `service password-encryption` | no plain-text management traffic or stored passwords | 1, 10 |
@@ -104,7 +105,7 @@ campus/             model and checks, generator, policy lint, running-config dif
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2)
 docs/               project guide (module by module), addressing plan, end-to-end paths, Packet Tracer steps, lab-day test sheet
-tests/              68 tests; fixtures/lab holds hand-written show outputs in IOS format
+tests/              75 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 

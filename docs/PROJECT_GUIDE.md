@@ -11,14 +11,14 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 | 5 | STP | `spanning-tree mode rapid-pvst`, priorities per VLAN; `python -m campus stp` |
 | 6 | EtherChannel | 5 LACP bundles, `channel-group N mode active` |
 | 7 | DHCPv4 | pools on R1, `ip helper-address` on the SVIs, a manual binding for the ESP32 |
-| 8 | SLAAC and DHCPv6 | IPv6 /64 per VLAN, SLAAC; VLAN 30 also stateless DHCPv6 (O flag + relay) |
+| 8 | SLAAC and DHCPv6 | IPv6 /64 per VLAN, SLAAC; VLAN 30 also stateless DHCPv6 (O flag + relay); manual link-local addresses (8.1.2) |
 | 9 | FHRP, HSRP | HSRP version 2 per VLAN, IPv4 and IPv6 groups, priority 110 + preempt on the primary |
 | 10 | LAN security concepts | the threats the access-port settings answer |
 | 11 | switch security configuration | port security, unused ports, VLAN hopping, DHCP snooping, DAI, PortFast, BPDU guard |
 | 12 | WLAN concepts | lightweight AP (CAPWAP) on A1, WLC on D2, WPA2-Enterprise |
 | 13 | WLAN configuration | WLC settings: interface on VLAN 40, DHCP via the relay, RADIUS |
 | 14 | routing concepts | longest match: the WLC's /32 beats the campus /17; administrative distance |
-| 15 | static routing | default, summary, floating (AD 10) and host routes, IPv4 and IPv6; the ISP and dual-stack server for end-to-end tests |
+| 15 | static routing | default, summary, floating (AD 10) and host routes, IPv4 and IPv6; IPv6 fully specified with link-local next hops; the ISP and dual-stack server for end-to-end tests |
 | 16 | troubleshooting static routes | `python -m campus trace` and `paths` before the lab, `verify` on `show ip route`; the failover tests |
 
 ## 1. One file, generated configurations
@@ -90,7 +90,7 @@ R1 has four kinds of static route, each from module 15:
 | `ip route 10.20.0.0 255.255.128.0 10.20.255.6 10` | floating static: the same route through D2 with administrative distance 10. It stays out of the routing table while the AD 1 route exists, and appears when D1's link goes down |
 | `ip route 10.20.99.20 255.255.255.255 10.20.255.6` | host route: longest match wins over the /17, so traffic to the WLC goes straight to D2 |
 
-The same set exists for IPv6 (a /56 summary). D1 and D2 have a default route to R1, and a floating default route (AD 10) through each other over VLAN 99. Module 16's troubleshooting is the lab-day failover test: shut D1's uplink, watch the floating route appear with `show ip route`, bring it back.
+The same set exists for IPv6 (a /56 summary and a /128 host route to the WLC), written as **fully specified** routes (SRWE 15.2.6): `ipv6 route 2001:db8:acad::/56 GigabitEthernet0/1 FE80::2`. Every routed link has manual link-local addresses (FE80::1 on R1, FE80::2 on D1, FE80::3 on D2, FE80::A on the ISP), and a link-local address is only unique on its own link, so IOS needs the exit interface with it. IPv4 keeps recursive routes (next hop only), so both forms appear in the design. D1 and D2 have a default route to R1, and a floating default route (AD 10) through each other over VLAN 99. Module 16's troubleshooting is the lab-day failover test: shut D1's uplink, watch the floating route appear with `show ip route`, bring it back.
 
 ### The outside world and the simulator
 
