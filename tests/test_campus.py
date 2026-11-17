@@ -453,3 +453,61 @@ def test_phones_reach_the_server(net):
     for family in (4, 6):
         ok1, ok2, h1, h2 = round_trip(net, 50, family)
         assert ok1 and ok2 and h1[0].endswith("gateway D2")
+
+
+# --- VLSM (ITN 11) ----------------------------------------------------------------------------
+from campus.vlsm import allocate, plan_vlsm, prefix_for, report, usable  # noqa: E402
+
+
+@pytest.mark.parametrize("needed,prefix", [(2, 30), (6, 29), (7, 28), (30, 27), (62, 26), (63, 25),
+                                           (126, 25), (127, 24), (254, 24), (255, 23)])
+def test_smallest_prefix_that_holds_the_hosts(needed, prefix):
+    assert prefix_for(needed) == prefix
+    assert usable(prefix) >= needed
+    if prefix < 30:
+        assert usable(prefix + 1) < needed
+
+
+def test_a_31_holds_a_point_to_point_link():
+    assert prefix_for(2, allow_31=True) == 31
+    assert usable(31) == 2 and usable(30) == 2 and usable(32) == 1
+
+
+def test_vlsm_allocates_biggest_first_without_overlap():
+    import ipaddress
+    out = allocate(ipaddress.ip_network("192.168.1.0/24"), [("a", 64), ("b", 128), ("c", 4), ("d", 32)])
+    assert [l for l, _ in out] == ["b", "a", "d", "c"]
+    assert [str(s) for _, s in out] == ["192.168.1.0/25", "192.168.1.128/26", "192.168.1.192/27", "192.168.1.224/30"]
+
+
+def test_vlsm_refuses_what_does_not_fit():
+    import ipaddress
+    with pytest.raises(ValueError):
+        allocate(ipaddress.ip_network("192.168.1.0/24"), [("a", 128), ("b", 128), ("c", 4)])
+
+
+def test_vlsm_plan_of_the_design(net):
+    p = plan_vlsm(net)
+    by_id = {r[0].id: r for r in p["vlans"]}
+    assert by_id[30][3] == 24 and by_id[10][3] == 25 and by_id[99][3] == 27
+    subs = [r[4] for r in p["vlans"]] + [s for _, s in p["links"]] + [p["loopback"]]
+    for i, a in enumerate(subs):
+        assert a.subnet_of(p["block"])
+        assert not any(a.overlaps(b) for b in subs[i + 1:])
+    assert all(s.prefixlen == 30 for _, s in p["links"])
+    assert all(s.prefixlen == 31 for _, s in plan_vlsm(net, allow_31=True)["links"])
+
+
+def test_vlsm_report_is_committed(net):
+    with open(os.path.join(ROOT, "docs", "VLSM.md")) as f:
+        assert f.read() == report(net)
+
+
+def test_too_many_hosts_for_the_dhcp_pool(net):
+    bad = changed(net, lambda r: r["vlans"][30].update(hosts=200))     # 200 + 50% = 300 > 234
+    assert any("VLAN 30" in x and "room for 234" in x for x in model.validate(bad))
+
+
+def test_hosts_check_counts_the_growth_margin(net):
+    ok = changed(net, lambda r: (r["vlans"][30].update(hosts=200), r["addressing"].update(growth_percent=10)))
+    assert model.validate(ok) == []
