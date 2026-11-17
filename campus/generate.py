@@ -112,9 +112,17 @@ def distribution_ctx(net, name, secrets):
     if w and w["switch"] == name:
         mg = next(v.id for v in net.routed_vlans if ipaddress.ip_interface(w["mgmt"]).ip in v.v4)
         wctx = {"name": w["name"], "long": long_name(w["port"]), "vlans": vlan_list({w["wlan"]["vlan"], mg})}
+    bd = net.raw.get("distribution", {}).get("backup_default")
+    backup = None
+    if bd:
+        other = next(d for d in net.dist() if d != name)
+        ov = net.vlans[bd["via_vlan"]]
+        oh = a["d1_host"] if other == net.dist()[0] else a["d2_host"]
+        backup = {"peer": other, "v4": ov.host(oh), "v6": ov.host6(oh), "ad": bd["ad"], "vlan": ov.id}
     ctx = common(net, name, s["model"], secrets, 15)
     ctx.update(switch_common(net, name))
     ctx.update({
+        "backup": backup,
         "uplink": {"long": long_name(s["uplink"]["port"]), "v4": ipaddress.ip_interface(s["uplink"]["v4"]),
                    "v6": s["uplink"]["v6"]},
         "svis": svis, "wlc": wctx,
@@ -177,12 +185,31 @@ def router_ctx(net, name, secrets):
     return ctx
 
 
+def isp_ctx(net, secrets):
+    i = net.raw["isp"]
+    r1 = net.raw["routers"]["R1"]
+    r1_out = next(x for x in r1["interfaces"].values() if "peer" not in x)
+    ctx = common(net, i["name"], i["model"], secrets, 4)
+    ctx.update({
+        "interfaces": [
+            {"long": long_name(i["uplink"]["port"]), "desc": "to R1 (customer HU01)",
+             "v4": ipaddress.ip_interface(i["uplink"]["v4"]), "v6": i["uplink"]["v6"]},
+            {"long": long_name(i["server_lan"]["port"]), "desc": f"{i['server']['name']} LAN",
+             "v4": ipaddress.ip_interface(i["server_lan"]["v4"]), "v6": i["server_lan"]["v6"]}],
+        "summary": ipaddress.ip_network(r1["campus_summary"]["v4"]), "summary6": r1["campus_summary"]["v6"],
+        "r1_v4": ipaddress.ip_interface(r1_out["v4"]).ip, "r1_v6": ipaddress.ip_interface(r1_out["v6"]).ip,
+    })
+    return ctx
+
+
 def render_all(net, secrets_path=None):
     secrets = load_secrets(secrets_path)
     e = env()
     out = {}
     for name in net.raw["routers"]:
         out[name] = e.get_template("router.j2").render(**router_ctx(net, name, secrets))
+    if net.raw.get("isp"):
+        out[net.raw["isp"]["name"]] = e.get_template("isp.j2").render(**isp_ctx(net, secrets))
     for name in net.dist():
         out[name] = e.get_template("distribution.j2").render(**distribution_ctx(net, name, secrets))
     for name in net.access():

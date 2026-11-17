@@ -39,6 +39,11 @@ routers:
     host_routes:             # longest match: this /32 beats the campus /17 and goes straight to D2
       - {dest: 10.20.99.20, via: D2, why: "WLC1 hangs off D2"}
 
+distribution:
+  # if a distribution switch loses its uplink, its VLANs still send to it (HSRP does not notice):
+  # a floating default route through the other switch, over the management VLAN, keeps them out
+  backup_default: {via_vlan: 99, ad: 10}
+
 switches:
   D1:
     model: C3650-24PS
@@ -81,6 +86,14 @@ wlc:             # the wireless LAN controller hangs off D2 on a trunk (configur
   port: G1/0/10
   mgmt: 10.20.99.20/24
   wlan: {ssid: HU01-STAFF, vlan: 40, security: WPA2-Enterprise, radius: 10.20.99.30}
+
+isp:             # the outside world for the end-to-end tests (the SRWE 15.1.5 dual-stack topology)
+  name: ISP
+  model: "2911"
+  uplink: {port: G0/0, v4: 203.0.113.1/30, v6: "2001:db8:f::1/64"}          # to R1 G0/0
+  server_lan: {port: G0/1, v4: 64.100.1.1/24, v6: "2001:db8:100:1::1/64"}
+  server: {name: Dual Stack Server, v4: 64.100.1.10, v6: "2001:db8:100:1::a"}
+  # no NAT before ENSA: the ISP gets static routes back to the campus summaries instead
 
 dhcp_reservations:   # IOS manual bindings: fill in the real MAC addresses on the lab day
   - {name: ESP32-NODE-1, vlan: 30, ip: 10.20.30.21, mac: 0000.0000.0001}

@@ -21,6 +21,12 @@ def main(argv=None):
     d.add_argument("running_config")
     sub.add_parser("stp", help="predict every port's spanning-tree role per VLAN")
     sub.add_parser("plan", help="print the addressing plan (Markdown)")
+    t = sub.add_parser("trace", help="follow a packet hop by hop through the generated configurations")
+    t.add_argument("src", help="vlanN, server or an address")
+    t.add_argument("dst", help="vlanN, server or an address")
+    t.add_argument("-6", dest="v6", action="store_true", help="IPv6 (default IPv4)")
+    t.add_argument("--down", action="append", default=[], help="DEVICE or DEVICE:INTERFACE, can repeat")
+    sub.add_parser("paths", help="every VLAN to the server and back, in each failure scenario (Markdown)")
     v = sub.add_parser("verify", help="check saved show-command output from the lab against the design")
     v.add_argument("captures", help="folder with <device>_<command>.txt files")
     a = ap.parse_args(argv)
@@ -70,6 +76,16 @@ def main(argv=None):
     if a.cmd == "plan":
         from .plan import plan
         print(plan(net), end="")
+        return 0
+    if a.cmd == "trace":
+        from .routing import Lab
+        ok, hops = Lab(net, a.down).trace(a.src, a.dst, 6 if a.v6 else 4)
+        print("\n".join(hops))
+        print("delivered" if ok else "NOT delivered")
+        return 0 if ok else 1
+    if a.cmd == "paths":
+        from .routing import paths_report
+        print(paths_report(net), end="")
         return 0
     if a.cmd == "verify":
         from .verify import verify_folder

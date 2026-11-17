@@ -11,6 +11,7 @@ from campus.diff import diff_configs
 from campus.generate import render_all
 from campus.iosconf import expand_range, parse
 from campus.lint import lint_text
+from campus.routing import Lab, round_trip
 from campus.stp import predict
 from campus.verify import parse_etherchannel, parse_routes, parse_spanning_tree, verify_folder
 
@@ -60,6 +61,10 @@ def test_port_ranges():
     (lambda r: r["switches"]["D1"]["uplink"].update(v4="10.20.255.9/30"), "not in the same subnet"),
     (lambda r: r["dhcp_reservations"][0].update(ip="10.20.30.5"), "excluded range"),
     (lambda r: r["dhcp_reservations"][0].update(ip="10.20.20.50"), "is not in VLAN 30"),
+    (lambda r: r["isp"]["uplink"].update(v4="203.0.113.5/30"), "not in the same IPv4 subnet"),
+    (lambda r: r["isp"]["server"].update(v4="64.100.1.1"), "not a usable host"),
+    (lambda r: r["isp"]["server_lan"].update(v4="10.20.100.1/24"), "overlaps the campus"),
+    (lambda r: r["routers"]["R1"]["default_route"].update(v4="203.0.113.3"), "does not point at the ISP"),
     (lambda r: r["vlans"].update({1: {"name": "default", "v4": "10.20.1.0/24", "v6": "2001:db8:acad:1::/64", "primary": "D1"}}),
      "VLAN 1 must not carry traffic"),
 ])
@@ -70,7 +75,7 @@ def test_validation_catches_mistakes(net, edit, expected):
 
 # --- generated configurations -------------------------------------------------------------------
 def test_one_config_per_device_with_placeholders_not_passwords(cfg):
-    assert set(cfg) == {"R1", "D1", "D2", "A1", "A2"}
+    assert set(cfg) == {"R1", "ISP", "D1", "D2", "A1", "A2"}
     for text in cfg.values():
         assert "enable secret <ENABLE_SECRET>" in text and "secret <ADMIN_SECRET>" in text
 
@@ -113,6 +118,14 @@ def test_router_routes_and_pools(cfg):
     assert r1["ip dhcp pool iot"] == ["network 10.20.30.0 255.255.255.0", "default-router 10.20.30.1",
                                       "dns-server 10.20.99.53", "domain-name hu01.test"]
     assert "hardware-address 0000.0000.0001" in r1["ip dhcp pool esp32-node-1"]
+
+
+def test_isp_routes_back_to_the_campus(cfg):
+    isp = parse(cfg["ISP"])
+    assert "ip route 10.20.0.0 255.255.128.0 203.0.113.2" in isp[""]
+    assert "ipv6 route 2001:db8:acad::/56 2001:db8:f::2" in isp[""]
+    assert "ip address 64.100.1.1 255.255.255.0" in isp["interface gigabitethernet0/1"]
+    assert "ipv6 address 2001:db8:100:1::1/64" in isp["interface gigabitethernet0/1"]
 
 
 def test_etherchannel_members_match_on_both_ends(cfg, net):
@@ -244,3 +257,71 @@ def test_verify_finds_a_problem(net, tmp_path, file, old, new, expected):
     ok, lines = verify_folder(net, str(d))
     assert not ok
     assert any(l.startswith("FAIL") and expected in l for l in lines), [l for l in lines if l.startswith("FAIL")]
+
+
+# --- routing tables and end-to-end paths --------------------------------------------------------
+def test_routing_table_of_r1(net):
+    t = {(str(p), ad, str(h) if h else None) for p, ad, h, _, _ in Lab(net).devices["R1"].table()}
+    assert ("0.0.0.0/0", 1, "203.0.113.1") in t
+    assert ("10.20.0.0/17", 1, "10.20.255.2") in t
+    assert not any(p == "10.20.0.0/17" and ad == 10 for p, ad, _ in t)       # the floating route waits
+    assert ("2001:db8:acad::/56", 1, "2001:db8:acad:ff01::2") in t
+
+
+def test_floating_route_replaces_the_primary_when_its_link_goes_down(net):
+    t = {(str(p), ad, str(h) if h else None) for p, ad, h, _, _ in Lab(net, ["R1:G0/1"]).devices["R1"].table()}
+    assert ("10.20.0.0/17", 10, "10.20.255.6") in t
+    assert ("2001:db8:acad::/56", 10, "2001:db8:acad:ff02::2") in t
+    assert not any(p == "10.20.255.0/30" for p, _, _ in t)                   # the connected route is gone too
+
+
+def test_longest_match_beats_the_summary(net):
+    ok, hops = Lab(net).trace("server", "10.20.99.20")
+    assert "R1: 10.20.99.20/32 [1/0] via 10.20.255.6" in " ".join(hops)
+
+
+@pytest.mark.parametrize("vlan", [10, 20, 30, 40, 99])
+@pytest.mark.parametrize("family", [4, 6])
+def test_every_vlan_reaches_the_server_and_back(net, vlan, family):
+    ok1, ok2, h1, h2 = round_trip(net, vlan, family)
+    assert ok1 and ok2, (h1, h2)
+    assert h1[1].startswith(net.vlans[vlan].primary)                         # leaves through its HSRP gateway
+
+
+@pytest.mark.parametrize("dead", ["D1", "D2"])
+def test_a_distribution_switch_can_fail(net, dead):
+    for v in net.routed_vlans:
+        for family in (4, 6):
+            ok1, ok2, h1, h2 = round_trip(net, v.id, family, [dead])
+            assert ok1 and ok2, (dead, v.id, family, h1, h2)
+            assert dead not in " ".join(h1 + h2)
+
+
+def test_trace_reports_a_missing_route(net):
+    lab = Lab(net, ["ISP:G0/1"])
+    ok, hops = lab.trace("vlan10", "server")
+    assert not ok
+    assert hops[-1] == "ISP: no route to 64.100.1.10 - dropped"
+
+
+@pytest.mark.parametrize("link, owner", [("R1:G0/1", "D1"), ("R1:G0/2", "D2")])
+def test_an_uplink_can_fail(net, link, owner):
+    """Found by the simulator: without the floating default route a switch that loses its uplink
+    stays HSRP active and drops its VLANs' traffic to the outside."""
+    for v in net.routed_vlans:
+        for family in (4, 6):
+            ok1, ok2, h1, h2 = round_trip(net, v.id, family, [link])
+            assert ok1 and ok2, (link, v.id, family, h1, h2)
+    ok1, _, h1, _ = round_trip(net, 10 if owner == "D1" else 30, 4, [link])
+    assert "[10/0] via 10.20.99." in " ".join(h1)
+
+
+def test_without_the_backup_default_an_uplink_failure_blackholes(net):
+    n = changed(net, lambda r: r.pop("distribution"))
+    ok1, ok2, h1, _ = round_trip(n, 10, 4, ["R1:G0/1"])
+    assert not ok1 and ok2 and h1[-1] == "D1: no route to 64.100.1.10 - dropped"
+
+
+def test_backup_default_route_in_the_configs(cfg):
+    assert "ip route 0.0.0.0 0.0.0.0 10.20.99.3 10" in parse(cfg["D1"])[""]
+    assert "ipv6 route ::/0 2001:db8:acad:99::2 10" in parse(cfg["D2"])[""]

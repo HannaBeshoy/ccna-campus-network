@@ -15,8 +15,11 @@ jobs:
         run: |
           python -m campus generate --out configs
           python -m campus plan > docs/ADDRESSING.md
-          git diff --exit-code configs docs/ADDRESSING.md
+          python -m campus paths > docs/PATHS.md
+          git diff --exit-code configs docs/ADDRESSING.md docs/PATHS.md
       - name: Every config passes the security policy
         run: python -m campus lint configs/*.cfg
       - run: python -m campus stp
+      - name: Every VLAN reaches the dual-stack server in every failure scenario
+        run: python -m campus paths
       - run: python -m pytest -v tests
