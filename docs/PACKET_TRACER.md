@@ -58,7 +58,7 @@ Wait about a minute for STP and EtherChannel, then:
 | ping between VLANs | works (inter-VLAN routing on D1/D2) |
 | ping 64.100.1.10 and 2001:db8:100:1::a from a PC | works (default routes to the ISP, routes back on the ISP) |
 | `show etherchannel summary` on every switch | every Po (SU), members (P) |
-| `show standby brief` on D1 | Active for 10, 20, 99; Standby for 30, 40 |
+| `show standby brief` on D1 | Active for 10, 20, 99; Standby for 30, 40, 50 |
 | `show spanning-tree` on A1 | as `python -m campus stp` predicts |
 | shut D1's link to R1, `show ip route` on R1 | the floating route via 10.20.255.6 appears |
 | shut D1 entirely, ping from a VLAN 10 PC | a few lost pings, then D2 answers as the gateway (HSRP) |

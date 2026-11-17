@@ -23,7 +23,7 @@ flowchart TB
     SRV[Dual Stack Server<br/>64.100.1.10<br/>2001:db8:100:1::a] --- ISP[ISP router<br/>routes back to the campus]
     ISP ---|"203.0.113.0/30<br/>2001:db8:f::/64"| R1[R1 Cisco 2911<br/>DHCP server, static routes]
     R1 ---|"10.20.255.0/30"| D1[D1 Catalyst 3650<br/>HSRP active VLAN 10, 20, 99<br/>STP root VLAN 10, 20, 99]
-    R1 ---|"10.20.255.4/30"| D2[D2 Catalyst 3650<br/>HSRP active VLAN 30, 40<br/>STP root VLAN 30, 40]
+    R1 ---|"10.20.255.4/30"| D2[D2 Catalyst 3650<br/>HSRP active VLAN 30, 40, 50<br/>STP root VLAN 30, 40, 50]
     D1 ===|"Po1 LACP 2x1G"| D2
     D1 ===|Po11| A1[A1 Catalyst 2960]
     D2 ===|Po12| A1
