@@ -6,13 +6,13 @@ whose next hop is reachable, the lowest administrative distance per prefix) and 
 longest match. A host in a VLAN sends to its HSRP gateway. "ok" means the packet reaches the
 server and the reply reaches the host.
 
-| Scenario | VLAN 10 | VLAN 20 | VLAN 30 | VLAN 40 | VLAN 99 |
-| --- | --- | --- | --- | --- | --- |
-| everything up | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
-| D1's uplink down | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
-| D2's uplink down | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
-| D1 off | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
-| D2 off | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
+| Scenario | VLAN 10 | VLAN 20 | VLAN 30 | VLAN 40 | VLAN 50 | VLAN 99 |
+| --- | --- | --- | --- | --- | --- | --- |
+| everything up | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
+| D1's uplink down | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
+| D2's uplink down | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
+| D1 off | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
+| D2 off | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok | v4 ok, v6 ok |
 
 ## Hop by hop, VLAN 10, IPv4
 

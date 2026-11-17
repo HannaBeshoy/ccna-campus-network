@@ -52,7 +52,7 @@ def test_port_ranges():
     (lambda r: r["vlans"][20].update(v4="10.20.10.128/25"), "overlaps"),
     (lambda r: r["vlans"][30].update(primary="A1"), "not a distribution switch"),
     (lambda r: r["vlans"][40].update(v6="2001:db8:acad:40::/80"), "must be a /64"),
-    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/9-16"].update(vlan=50), "does not exist"),
+    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/9-16"].update(vlan=60), "does not exist"),
     (lambda r: r["switches"]["A1"]["unused"].append("Fa0/1"), "listed as unused"),
     (lambda r: r["switches"]["A2"]["unused"].remove("Fa0/20"), "not assigned"),
     (lambda r: r["etherchannels"][1].update(b_ports="Fa0/21-23"), "different numbers of members"),
@@ -69,6 +69,9 @@ def test_port_ranges():
     (lambda r: r["routers"]["R1"]["interfaces"]["G0/1"].update(lla="2001:db8::1"), "not a link-local address"),
     (lambda r: r["routers"]["R1"]["host_routes"][0].update(dest6="2001:db8:beef::20"), "not in a campus VLAN"),
     (lambda r: r["vlans"][20].update(dhcpv6="managed"), "must be stateless or stateful"),
+    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(voice=10), "must differ from the data VLAN"),
+    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(voice=999), "voice VLAN 999 does not exist"),
+    (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(max_mac=1), "maximum 2 or more"),
     (lambda r: r["vlans"].update({1: {"name": "default", "v4": "10.20.1.0/24", "v6": "2001:db8:acad:1::/64", "primary": "D1"}}),
      "VLAN 1 must not carry traffic"),
 ])
@@ -97,7 +100,7 @@ def test_hsrp_and_stp_root_follow_the_primary(cfg):
     assert not any("priority" in l for l in d2["interface vlan10"] if l.startswith("standby 10 "))
     assert "standby 30 priority 110" in d2["interface vlan30"]
     assert "spanning-tree vlan 10,20,99 priority 24576" in d1[""]
-    assert "spanning-tree vlan 30,40 priority 24576" in d2[""]
+    assert "spanning-tree vlan 30,40,50 priority 24576" in d2[""]
     assert "spanning-tree vlan 10,20,99 priority 28672" in d2[""]
 
 
@@ -163,7 +166,7 @@ def test_generated_configs_pass_the_policy(cfg):
     (" switchport nonegotiate\n channel-group 11", " channel-group 11", "still sends DTP"),
     (" transport input ssh", " transport input ssh telnet", "SSH only"),
     ("ip ssh version 2\n", "", "SSH version 2"),
-    ("ip dhcp snooping vlan 10,20,30,40\n", "", "DHCP snooping"),
+    ("ip dhcp snooping vlan 10,20,30,40,50\n", "", "DHCP snooping"),
     (" switchport access vlan 999\n shutdown", " shutdown", "unused port left in VLAN 1"),
 ])
 def test_lint_finds_a_weakened_switch(cfg, old, new, expected):
@@ -193,8 +196,9 @@ def test_diff_ignores_how_ios_prints_a_running_config(cfg):
     assert missing == {}, missing
 
 
-BODY_A1_1_8 = [" description staff desk", " switchport access vlan 10", " switchport mode access",
-               " switchport nonegotiate", " switchport port-security maximum 2", " switchport port-security",
+BODY_A1_1_8 = [" description staff desk, IP phone", " switchport access vlan 10", " switchport mode access",
+               " switchport voice vlan 50", " mls qos trust cos",
+               " switchport nonegotiate", " switchport port-security maximum 3", " switchport port-security",
                " switchport port-security violation restrict", " switchport port-security mac-address sticky",
                " switchport port-security mac-address sticky 0011.2233.4455 vlan 10",
                " spanning-tree portfast", " spanning-tree bpduguard enable", " ip dhcp snooping limit rate 10"]
@@ -240,7 +244,7 @@ def test_parsers():
 def test_verify_passes_on_a_good_capture(net):
     ok, lines = verify_folder(net, FIX)
     assert ok, [l for l in lines if l.startswith("FAIL")]
-    assert lines[-1] == "40 passed, 0 failed"
+    assert lines[-1] == "46 passed, 0 failed"
 
 
 @pytest.mark.parametrize("file, old, new, expected", [
@@ -386,3 +390,37 @@ def test_no_dhcpv6_pool_when_every_vlan_uses_slaac(net):
     n = changed(net, lambda r: [v.pop("dhcpv6", None) for v in r["vlans"].values()])
     r1 = render_all(n)["R1"]
     assert "ipv6 dhcp" not in r1
+
+
+# --- voice VLAN (SRWE 3.2.6 - 3.3.7) -------------------------------------------------------------
+def test_staff_ports_carry_data_and_voice(cfg):
+    a1, a2 = parse(cfg["A1"]), parse(cfg["A2"])
+    for sw, ports in ((a1, range(1, 9)), (a2, (17, 18))):
+        for n in ports:
+            body = sw[f"interface fastethernet0/{n}"]
+            assert "switchport access vlan 10" in body and "switchport voice vlan 50" in body
+            assert "mls qos trust cos" in body and "switchport port-security maximum 3" in body
+    assert "mls qos" in a1[""] and "mls qos" in a2[""]
+    assert "switchport voice vlan 50" not in a1["interface fastethernet0/9"]          # test stations: no phone
+    assert "switchport port-security maximum 2" in a1["interface fastethernet0/9"]
+
+
+def test_voice_vlan_is_routed_and_served(cfg):
+    assert "ip dhcp pool voice" in parse(cfg["R1"])
+    d2 = parse(cfg["D2"])
+    assert "standby 50 priority 110" in d2["interface vlan50"]
+    assert "ip helper-address 10.20.254.1" in d2["interface vlan50"]
+    assert "switchport trunk allowed vlan 10,20,30,40,50,99" in d2["interface port-channel12"]
+    assert "ip dhcp snooping vlan 10,20,30,40,50" in parse(cfg["A1"])[""]
+
+
+def test_no_qos_without_phones(net):
+    n = changed(net, lambda r: [p.pop("voice", None) for sw in ("A1", "A2")
+                                for p in r["switches"][sw]["access_ports"].values()])
+    assert "mls qos" not in render_all(n)["A1"]
+
+
+def test_phones_reach_the_server(net):
+    for family in (4, 6):
+        ok1, ok2, h1, h2 = round_trip(net, 50, family)
+        assert ok1 and ok2 and h1[0].endswith("gateway D2")

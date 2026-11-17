@@ -6,7 +6,7 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 | ---: | --- | --- |
 | 1 | basic device configuration, SSH | `_base.j2`: hostname, secrets, SSH v2, vty lines; SVI 99 on the access switches |
 | 2 | switching concepts | why the access layer floods unknown unicast and why VLANs split broadcast domains |
-| 3 | VLANs, trunks, DTP | `vlan` blocks, every trunk `switchport nonegotiate`, native VLAN 999 |
+| 3 | VLANs, trunks, DTP | `vlan` blocks, every trunk `switchport nonegotiate`, native VLAN 999; voice VLAN 50 with CoS trust on the staff ports |
 | 4 | inter-VLAN routing | SVIs on D1/D2 with `ip routing`; routed uplinks (`no switchport`) to R1 |
 | 5 | STP | `spanning-tree mode rapid-pvst`, priorities per VLAN; `python -m campus stp` |
 | 6 | EtherChannel | 5 LACP bundles, `channel-group N mode active` |
@@ -31,11 +31,13 @@ Every device gets the same base: `no ip domain-lookup` (a mistyped command does 
 
 ## 3. VLANs and trunks (modules 2 and 3)
 
-Five VLANs separate staff PCs, test stations, sensors, wireless clients and management: each is its own broadcast domain and its own IPv4 subnet. Trunks carry them between switches with 802.1Q tags. Three settings on every trunk:
+Six VLANs separate staff PCs, test stations, sensors, wireless clients, IP phones and management: each is its own broadcast domain and its own IPv4 subnet. Trunks carry them between switches with 802.1Q tags. Three settings on every trunk:
 
-- `switchport trunk allowed vlan 10,20,30,40,99`: only the VLANs that are used;
+- `switchport trunk allowed vlan 10,20,30,40,50,99`: only the VLANs that are used;
 - `switchport trunk native vlan 999`: untagged frames land in a VLAN that carries nothing (against double-tagging);
 - `switchport nonegotiate`: no DTP, so a PC cannot negotiate a trunk by pretending to be a switch.
+
+**Voice VLAN (3.2.6 - 3.3.7).** A staff desk has a PC plugged into the back of an IP phone, and one cable to the switch. The port stays an access port in VLAN 10 for the PC's untagged frames and adds `switchport voice vlan 50`: the switch tells the phone (by CDP) to tag its own frames with VLAN 50 and a CoS priority. `mls qos trust cos` makes the switch keep that priority instead of resetting it, so speech goes first when the uplink is busy (`mls qos` turns QoS on for the 2960). Port security on these ports allows three MAC addresses: the PC, and the phone, which the switch learns in the data VLAN and in the voice VLAN. `show interfaces fa0/1 switchport` shows "Voice VLAN: 50 (VOICE)". The voice VLAN gets everything the other VLANs get from the model: an HSRP gateway on D2, a DHCP pool, snooping and DAI, and a place on every trunk.
 
 ## 4. Inter-VLAN routing (module 4)
 
@@ -43,7 +45,7 @@ D1 and D2 are Layer 3 switches: `ip routing` and one SVI (`interface VlanN`) per
 
 ## 5. Rapid PVST+ (module 5)
 
-With two uplinks per access switch there are loops, so spanning tree must block one path per VLAN. The design chooses which: D1 has priority 24576 (root) for VLANs 10, 20, 99 and 28672 (secondary) for 30 and 40; D2 the other way round. The access switches keep the default 32768. `python -m campus stp` computes the result (README). Rapid PVST+ instead of the original 802.1D because it converges in about a second instead of 30 to 50, and one tree per VLAN is what lets the two distribution switches share the load.
+With two uplinks per access switch there are loops, so spanning tree must block one path per VLAN. The design chooses which: D1 has priority 24576 (root) for VLANs 10, 20, 99 and 28672 (secondary) for 30, 40 and 50; D2 the other way round. The access switches keep the default 32768. `python -m campus stp` computes the result (README). Rapid PVST+ instead of the original 802.1D because it converges in about a second instead of 30 to 50, and one tree per VLAN is what lets the two distribution switches share the load.
 
 ## 6. EtherChannel (module 6)
 
@@ -51,7 +53,7 @@ Each pair of switches is connected by two cables bundled with LACP (`channel-gro
 
 ## 7. DHCPv4 (module 7)
 
-R1 is the DHCP server for VLANs 10, 20, 30 and 40: one pool each, with `.1` to `.20` excluded (gateways, switches, printers). The clients are not on R1's subnets, so each SVI has `ip helper-address 10.20.254.1`: the switch turns the client's broadcast into a unicast to R1 and writes its own address (giaddr) into it, which is how R1 knows which pool to use. The ESP32 sensor node gets a fixed address from a manual binding (`host 10.20.30.21` + `hardware-address`; its real MAC goes into `network.yaml` on the lab day).
+R1 is the DHCP server for VLANs 10, 20, 30, 40 and 50: one pool each, with `.1` to `.20` excluded (gateways, switches, printers). The clients are not on R1's subnets, so each SVI has `ip helper-address 10.20.254.1`: the switch turns the client's broadcast into a unicast to R1 and writes its own address (giaddr) into it, which is how R1 knows which pool to use. The ESP32 sensor node gets a fixed address from a manual binding (`host 10.20.30.21` + `hardware-address`; its real MAC goes into `network.yaml` on the lab day).
 
 ## 8. IPv6: SLAAC, stateless and stateful DHCPv6 (module 8)
 
