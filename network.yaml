@@ -7,6 +7,10 @@ site:
   name: HU01 test hall
   domain: hu01.test
   banner: "Authorised access only. HU01 test hall network."
+  hardening:    # ITN 16.4: device security on every router and switch
+    min_password_length: 10          # security passwords min-length
+    login_block: {seconds: 120, attempts: 3, within: 60}   # login block-for ... attempts ... within ...
+    exec_timeout: 10                 # minutes of idle time before a console or vty session ends
 
 vlans:          # id: name, IPv4 subnet, IPv6 /64, which distribution switch is HSRP active and STP root
                 # dhcpv6: none = SLAAC only (A flag), stateless = SLAAC + DNS from DHCPv6 (O flag),

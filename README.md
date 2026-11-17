@@ -9,11 +9,11 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] [network.yaml](network.yaml): 7 VLANs (one a voice VLAN), IPv4 and IPv6 addressing, 5 LACP EtherChannels, HSRP and STP roots per VLAN, DHCP pools and a reservation for the ESP32 sensor node
 - [x] `python -m campus generate`: [configs/](configs/) for R1, ISP, D1, D2, A1, A2, with password placeholders; real passwords come from a local `secrets.yaml` that is never committed
 - [x] `python -m campus check`: about 30 checks for design mistakes (overlapping subnets, a port used twice, mismatched EtherChannel ends, an access switch without two uplinks, an unassigned port, ...)
-- [x] `python -m campus lint`: the switch-security policy of modules 10 and 11 on any config file, generated or saved from a real switch
+- [x] `python -m campus lint`: the switch-security policy of modules 10 and 11 and the device hardening of ITN 16 on any config file, generated or saved from a real switch
 - [x] `python -m campus stp`: which Port-channel is root, designated or blocking in every VLAN, before anything is cabled
 - [x] `python -m campus diff` and `verify`: compare a running-config and saved show commands with the design
 - [x] `python -m campus trace` and `paths`: every router's routing table built from the configs, packets followed hop by hop to the dual-stack server behind the ISP, with links or switches taken down ([docs/PATHS.md](docs/PATHS.md)); this found a real gap, fixed with a floating default route between the distribution switches
-- [x] **90 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] **98 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -67,6 +67,7 @@ The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.
 | Native VLAN 999 on every trunk, DTP off, unused ports shut down in VLAN 999 | stops VLAN hopping (double tagging and switch spoofing) | 10, 11 |
 | Port security (sticky), PortFast + BPDU guard, DHCP snooping with rate limit, Dynamic ARP Inspection on every access port | MAC flooding, rogue switches, rogue DHCP servers and ARP spoofing are each blocked by one of these | 11 |
 | SSH version 2 only, local users with `secret`, `service password-encryption` | no plain-text management traffic or stored passwords | 1, 10 |
+| `security passwords min-length 10`, `login block-for 120 attempts 3 within 60`, logged logins, 10-minute idle timeout | short passwords refused, password guessing slowed down and visible in the log (ITN 16.4) | ITN 16 |
 | Passwords are placeholders in the repository | a configuration in a public repository must not carry real credentials | |
 
 ## Spanning tree, predicted
@@ -108,7 +109,7 @@ campus/             model and checks, generator, policy lint, running-config dif
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2)
 docs/               project guide (module by module), addressing plan, end-to-end paths, Packet Tracer steps, lab-day test sheet
-tests/              90 tests; fixtures/lab holds hand-written show outputs in IOS format
+tests/              98 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 
