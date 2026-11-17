@@ -14,14 +14,15 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus diff` and `verify`: compare a running-config and saved show commands with the design
 - [x] `python -m campus trace` and `paths`: every router's routing table built from the configs, packets followed hop by hop to the dual-stack server behind the ISP, with links or switches taken down ([docs/PATHS.md](docs/PATHS.md)); this found a real gap, fixed with a floating default route between the distribution switches
 - [x] `python -m campus vlsm`: every subnet sized from the hosts it must hold plus growth, a VLSM allocation next to the /24 plan, /30 against /31 links ([docs/VLSM.md](docs/VLSM.md))
-- [x] **115 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] `python -m campus connectivity`: the ping and tracert test plan with every expected hop in IPv4 and IPv6, the failover paths and extended pings from the routers ([docs/CONNECTIVITY.md](docs/CONNECTIVITY.md)); `verify` checks the saved outputs. The extended ping found that the ISP only routed the VLAN summary back
+- [x] **131 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
 
 ```mermaid
 flowchart TB
-    SRV[Dual Stack Server<br/>64.100.1.10<br/>2001:db8:100:1::a] --- ISP[ISP router<br/>routes back to the campus]
+    SRV[Dual Stack Server<br/>64.100.1.10<br/>2001:db8:100:1::a] --- ISP[ISP router<br/>routes the site block back]
     ISP ---|"203.0.113.0/30<br/>2001:db8:f::/64"| R1[R1 Cisco 2911<br/>DHCP server, static routes]
     R1 ---|"10.20.255.0/30"| D1[D1 Catalyst 3650<br/>HSRP active VLAN 10, 20, 99<br/>STP root VLAN 10, 20, 99]
     R1 ---|"10.20.255.4/30"| D2[D2 Catalyst 3650<br/>HSRP active VLAN 30, 40, 50<br/>STP root VLAN 30, 40, 50]
@@ -63,6 +64,7 @@ The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.
 | R1 reaches the campus by one summary route, with a floating static (AD 10) through D2 | one line instead of five, and an automatic backup when D1's link fails | 15 |
 | Each distribution switch has a floating default route (AD 10) through the other one over VLAN 99 | HSRP does not notice an uplink failure, so the switch stays the gateway; without this route its VLANs lose the outside (found by `campus paths`) | 9, 15 |
 | An ISP router and a dual-stack server outside the campus, with static routes back | the default routes can be tested end to end with ping and tracert in IPv4 and IPv6; NAT comes in the next course | 15, 16 |
+| The ISP routes the whole site block (/16, /48) back; R1 sends it to Null0 | the loopback and the links to D1/D2 are outside the VLAN summary (found by an extended ping from Loopback0); the Null0 route keeps traffic for unused addresses from bouncing between R1 and the ISP | 15, ITN 17 |
 | A /32 and a /128 host route to the WLC through D2 | longest match beats the summary, so controller traffic goes straight to the switch it hangs off | 14, 15 |
 | IPv6 static routes are fully specified: exit interface + the neighbour's manual link-local address | a link-local address is unique only on its link; the next hop stays the same if global prefixes are renumbered | 8, 15 |
 | A voice VLAN on the staff desk ports, CoS trusted, port security maximum 3 | one cable for phone and PC; speech keeps its priority; the phone's MAC appears in both VLANs | 3, 11 |
@@ -99,6 +101,7 @@ python -m campus stp
 python -m campus vlsm                  # subnet sizes from the host counts
 python -m campus trace vlan10 server --down R1:G0/1   # follow a packet with D1's uplink down
 python -m campus paths                 # every VLAN to the server, five failure scenarios
+python -m campus connectivity          # ping/tracert plan with the expected hops
 python -m campus diff A1 saved_running_config.txt
 python -m campus verify captures       # show-command outputs from the lab
 python -m pytest -v tests
@@ -111,8 +114,8 @@ network.yaml        the design
 campus/             model and checks, generator, policy lint, running-config diff, STP prediction, routing simulator, lab verifier
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2)
-docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, Packet Tracer steps, lab-day test sheet
-tests/              115 tests; fixtures/lab holds hand-written show outputs in IOS format
+docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, ping/tracert plan, Packet Tracer steps, lab-day test sheet
+tests/              131 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 

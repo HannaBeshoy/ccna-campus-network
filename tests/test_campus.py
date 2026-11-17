@@ -131,10 +131,34 @@ def test_router_routes_and_pools(cfg):
 
 def test_isp_routes_back_to_the_campus(cfg):
     isp = parse(cfg["ISP"])
-    assert "ip route 10.20.0.0 255.255.128.0 203.0.113.2" in isp[""]
-    assert "ipv6 route 2001:db8:acad::/56 gigabitethernet0/0 fe80::1" in isp[""]
+    assert "ip route 10.20.0.0 255.255.0.0 203.0.113.2" in isp[""]          # the whole site block
+    assert "ipv6 route 2001:db8:acad::/48 gigabitethernet0/0 fe80::1" in isp[""]
     assert "ip address 64.100.1.1 255.255.255.0" in isp["interface gigabitethernet0/1"]
     assert "ipv6 address 2001:db8:100:1::1/64" in isp["interface gigabitethernet0/1"]
+
+
+def test_r1_discards_the_unused_part_of_the_site_block(cfg):
+    r1 = parse(cfg["R1"])
+    assert "ip route 10.20.0.0 255.255.0.0 null0" in r1[""]
+    assert "ipv6 route 2001:db8:acad::/48 null0" in r1[""]
+
+
+def test_unused_site_address_is_discarded_not_looped(net):
+    ok, hops = Lab(net).trace("server", "10.20.200.1")
+    assert not ok and "Null0" in hops[-1] and "loop" not in hops[-1]
+    ok, hops = Lab(net, ["D1", "D2"]).trace("server", "10.20.10.50")        # no way into the campus
+    assert not ok and hops[-1].startswith("R1:") and "Null0" in hops[-1]
+
+
+def test_r1_loopback_reaches_the_server_with_extended_ping(net):
+    lab = Lab(net)
+    assert lab.ping("R1", "10.20.254.1", "64.100.1.10")[0]
+    assert lab.ping("R1", "2001:db8:acad:254::1", "2001:db8:100:1::a")[0]
+
+
+def test_loopback_outside_the_site_block_is_refused(net):
+    bad = changed(net, lambda r: r["routers"]["R1"].update(loopback={"v4": "10.30.0.1/32", "v6": "2001:db8:acad:254::1/128"}))
+    assert any("Loopback0" in x and "site block" in x for x in model.validate(bad))
 
 
 def test_etherchannel_members_match_on_both_ends(cfg, net):
@@ -273,7 +297,7 @@ def test_parsers():
 def test_verify_passes_on_a_good_capture(net):
     ok, lines = verify_folder(net, FIX)
     assert ok, [l for l in lines if l.startswith("FAIL")]
-    assert lines[-1] == "46 passed, 0 failed"
+    assert lines[-1] == "51 passed, 0 failed"
 
 
 @pytest.mark.parametrize("file, old, new, expected", [
@@ -511,3 +535,74 @@ def test_too_many_hosts_for_the_dhcp_pool(net):
 def test_hosts_check_counts_the_growth_margin(net):
     ok = changed(net, lambda r: (r["vlans"][30].update(hosts=200), r["addressing"].update(growth_percent=10)))
     assert model.validate(ok) == []
+
+
+# --- connectivity tests (ITN 13, 17.4) ---------------------------------------------------------
+from campus.connectivity import expected_tracert, extended_pings, hsrp6_link_local  # noqa: E402
+from campus.connectivity import report as connectivity_report  # noqa: E402
+from campus.verify import parse_ping, parse_tracert  # noqa: E402
+
+
+def test_tracert_expected_hops_everything_up(net):
+    hops = expected_tracert(net, 10, 4)
+    assert [str(a) for _, a in hops] == ["10.20.10.2", "10.20.255.1", "203.0.113.1", "64.100.1.10"]
+    hops6 = expected_tracert(net, 30, 6)
+    assert [d for d, _ in hops6] == ["D2", "R1", "ISP", "Dual Stack Server"]
+    assert str(hops6[1][1]) == "2001:db8:acad:ff02::1"         # the global address, not the link-local next hop
+
+
+def test_tracert_with_d1_uplink_down_goes_through_d2(net):
+    hops = expected_tracert(net, 10, 4, ("R1:G0/1",))
+    assert [d for d, _ in hops] == ["D1", "D2", "R1", "ISP", "Dual Stack Server"]
+    assert str(hops[1][1]) == "10.20.99.3"                      # arrives on D2 over VLAN 99
+
+
+def test_every_extended_ping_gets_replies(net):
+    pings = extended_pings(net)
+    assert len(pings) == 6 and all(ok for *_, ok in pings)
+
+
+def test_hsrp_ipv6_virtual_link_local():
+    assert str(hsrp6_link_local(1010)) == "fe80::205:73ff:fea0:3f2"
+
+
+def test_connectivity_report_is_committed(net):
+    with open(os.path.join(ROOT, "docs", "CONNECTIVITY.md")) as f:
+        assert f.read() == connectivity_report(net)
+
+
+def test_parse_ios_traceroute_with_a_timeout():
+    text = """R1#traceroute 64.100.1.10
+Type escape sequence to abort.
+Tracing the route to 64.100.1.10
+VRF info: (vrf in name/id, vrf out name/id)
+  1 203.0.113.1 0 msec 1 msec 0 msec
+  2 *  *  *
+  3 64.100.1.10 1 msec 1 msec 1 msec
+"""
+    assert [str(h) if h else None for h in parse_tracert(text)] == ["203.0.113.1", None, "64.100.1.10"]
+
+
+def test_parse_tracert_with_names():
+    text = "  1    <1 ms    <1 ms    <1 ms  d1.hu01.test [10.20.10.2]\n  2     *        *        *     Request timed out.\n"
+    assert [str(h) if h else None for h in parse_tracert(text)] == ["10.20.10.2", None]
+
+
+@pytest.mark.parametrize("text,result", [
+    ("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss),", (4, 0)),
+    ("Success rate is 80 percent (4/5), round-trip min/avg/max = 1/1/2 ms", (5, 4)),
+    ("4 packets transmitted, 4 received, 0% packet loss, time 3004ms", (4, 4)),
+    ("nothing here", None)])
+def test_parse_ping(text, result):
+    assert parse_ping(text) == result
+
+
+def test_verify_catches_a_tracert_through_the_wrong_switch(net, tmp_path):
+    (tmp_path / "vlan10_tracert_server.txt").write_text(
+        "  1  <1 ms  <1 ms  <1 ms  10.20.10.3\n  2  1 ms  1 ms  1 ms  10.20.255.5\n"
+        "  3  1 ms  1 ms  1 ms  203.0.113.1\n  4  2 ms  2 ms  2 ms  64.100.1.10\n")
+    (tmp_path / "vlan20_ping6_server.txt").write_text("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss),")
+    ok, lines = verify_folder(net, str(tmp_path))
+    assert not ok
+    assert any(l.startswith("FAIL vlan10: tracert") and "got D2 > R1 > ISP" in l for l in lines)
+    assert any(l.startswith("FAIL vlan20_ping6_server") for l in lines)

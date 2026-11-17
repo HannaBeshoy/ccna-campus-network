@@ -7,10 +7,18 @@ D1_show_standby_brief.txt. Supported commands:
   show etherchannel summary       every Port-channel is in use (SU), LACP, all members bundled (P)
   show standby brief              HSRP: the primary switch of each VLAN is Active, the other Standby
   show spanning-tree              root bridge and every Port-channel's role, as stp.py predicts
-  show ip route                   R1 has the default, campus and host routes, through the right next hop
+  show ip route                   R1 has the default, campus and host routes through the right next hop,
+                                  and the site block to Null0
+
+and the connectivity tests of docs/CONNECTIVITY.md, from a host (vlan10_...) or a device (R1_...):
+
+  <who>_tracert_server.txt        tracert/traceroute to the server: every hop is the expected device,
+  <who>_tracert6_server.txt       in order (Windows tracert and IOS traceroute output both work)
+  <who>_ping*_server*.txt         ping to the server got replies (Windows, IOS or Linux output)
 
 Files that are not there are skipped, so a partial capture can be checked too.
 """
+import ipaddress
 import os
 import re
 
@@ -86,6 +94,75 @@ def parse_routes(text):
     return out
 
 
+def _addresses(text):
+    """Every IPv4/IPv6 address in a line (also inside [brackets] after a resolved name)."""
+    out = []
+    for tok in re.findall(r"[0-9A-Fa-f:.]+", text):
+        tok = tok.strip(".")
+        if (":" in tok or tok.count(".") == 3) and not re.fullmatch(r"\d+:\d+", tok):
+            try:
+                out.append(ipaddress.ip_address(tok))
+            except ValueError:
+                pass
+    return out
+
+
+def parse_tracert(text):
+    """[address or None] per hop of a Windows tracert or IOS traceroute (None = '*' only)."""
+    hops = {}
+    for line in text.splitlines():
+        m = re.match(r"^\s*(\d+)\s+(.*)$", line)
+        if not m or not re.search(r"ms|msec|\*|Request timed out", m.group(2)):
+            continue
+        addrs = _addresses(re.sub(r"<?\d+ ?ms(ec)?", " ", m.group(2)))
+        hops[int(m.group(1))] = addrs[-1] if addrs else None
+    return [hops[k] for k in sorted(hops)]
+
+
+def parse_ping(text):
+    """(sent, received) from Windows, IOS or Linux ping output, or None."""
+    m = re.search(r"Sent = (\d+), Received = (\d+)", text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    m = re.search(r"Success rate is \d+ percent \((\d+)/(\d+)\)", text)
+    if m:
+        return int(m.group(2)), int(m.group(1))
+    m = re.search(r"(\d+) packets transmitted, (\d+) (?:packets )?received", text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return None
+
+
+def verify_connectivity(net, folder, result):
+    from .connectivity import expected_tracert
+    from .routing import Lab
+    lab = Lab(net)
+    server = net.raw["isp"]["server"]["name"]
+    for f in sorted(os.listdir(folder)):
+        m = re.fullmatch(r"(\w+?)_tracert(6?)_server\.txt", f)
+        if m:
+            who, fam = m.group(1), 6 if m.group(2) else 4
+            hops = parse_tracert(open(os.path.join(folder, f)).read())
+            vm = re.fullmatch(r"vlan(\d+)", who, re.I)
+            if not vm or int(vm.group(1)) not in net.vlans:
+                result(False, f"{f}: name it vlan<N>_tracert..._server.txt for a host in VLAN N")
+                continue
+            want = expected_tracert(net, int(vm.group(1)), fam)
+            names = [d for d, _ in want]
+            got = []
+            for ip in hops:
+                owner = None if ip is None else next(
+                    (n for n, d in lab.devices.items() if d.owns(ip)), server if ip == lab.server(fam) else None)
+                got.append(owner or (str(ip) if ip else "*"))
+            result(got == names, f"{who}: tracert to the server (IPv{fam}) passes {' > '.join(names)}"
+                   + ("" if got == names else f", got {' > '.join(got)}"))
+            continue
+        m = re.fullmatch(r"(\w+?)_ping(6?)_server.*\.txt", f)
+        if m:
+            r = parse_ping(open(os.path.join(folder, f)).read())
+            result(bool(r) and r[1] > 0, f"{f[:-4]}: replies" + (f" ({r[1]}/{r[0]})" if r else " (no ping output found)"))
+
+
 def verify_folder(net, folder):
     lines, ok = [], True
 
@@ -157,6 +234,11 @@ def verify_folder(net, folder):
         for h in r1.get("host_routes", []):
             via = sw[h["via"]]["uplink"]["v4"].split("/")[0]
             result(any(p == f"{h['dest']}/32" and n == via for c, p, n in routes), f"R1: host route {h['dest']}/32 via {h['via']}")
+        if "site_block" in r1:
+            sb = r1["site_block"]["v4"]
+            result(any(p == sb and n == "Null0" for c, p, n in routes), f"R1: the site block {sb} to Null0")
+    if net.raw.get("isp"):
+        verify_connectivity(net, folder, result)
     if not lines:
         lines.append(f"no capture files found in {folder}")
         ok = False

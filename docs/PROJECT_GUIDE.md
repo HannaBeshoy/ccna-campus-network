@@ -19,7 +19,7 @@ The network, module by module of CCNA Switching, Routing and Wireless Essentials
 | 13 | WLAN configuration | WLC settings: interface on VLAN 40, DHCP via the relay, RADIUS |
 | 14 | routing concepts | longest match: the WLC's /32 beats the campus /17; administrative distance |
 | 15 | static routing | default, summary, floating (AD 10) and host routes, IPv4 and IPv6; IPv6 fully specified with link-local next hops; the ISP and dual-stack server for end-to-end tests |
-| 16 | troubleshooting static routes | `python -m campus trace` and `paths` before the lab, `verify` on `show ip route`; the failover tests |
+| 16 | troubleshooting static routes | `python -m campus trace` and `paths` before the lab, `verify` on `show ip route`; the failover tests; the ping/tracert plan with expected hops and extended pings (ITN 13, 17.4) |
 
 ## 1. One file, generated configurations
 
@@ -110,11 +110,17 @@ The same set exists for IPv6 (a /56 summary and a /128 host route to the WLC), w
 
 ### The outside world and the simulator
 
-Outside the campus there is now an ISP router and a dual-stack server (64.100.1.10, 2001:db8:100:1::a), the topology of SRWE 15.1.5. Without NAT (next course) the ISP needs static routes back to the campus summaries. With a target outside, the default routes can be tested end to end from every VLAN, in IPv4 and IPv6.
+Outside the campus there is now an ISP router and a dual-stack server (64.100.1.10, 2001:db8:100:1::a), the topology of SRWE 15.1.5. Without NAT (next course) the ISP needs a static route back to the site: the whole block HU01 owns (10.20.0.0/16 and 2001:db8:acad::/48), not only the VLAN summary, because R1's loopback (10.20.254.1) and the links to D1 and D2 (10.20.255.x) lie outside 10.20.0.0/17. An extended ping from R1 sourced from Loopback0 is what showed it: the echo reached the server and the reply was dropped at the ISP. R1 then needs `ip route 10.20.0.0 255.255.0.0 Null0` (and `ipv6 route 2001:db8:acad::/48 Null0`): a packet for an unused address of the block matches only that route and is discarded, instead of following R1's default route back to the ISP and bouncing between the two until the TTL runs out. The same route catches traffic for the campus when both uplinks are down. With a target outside, the default routes can be tested end to end from every VLAN, in IPv4 and IPv6.
 
 `python -m campus trace` and `paths` do that test before the lab. They build each device's routing table from the generated configuration the way IOS does: a connected route for every interface that is up, a static route only if its next hop is reachable, the lowest administrative distance for each prefix, then the longest match. Taking an interface down removes its connected route on both ends of the link, so R1's AD 1 route through D1 disappears and the floating AD 10 route through D2 is installed, exactly as `show ip route` will show.
 
 The first run found a gap. With D1's uplink down, R1's floating route brought return traffic in through D2, but outbound traffic from VLANs 10, 20 and 99 still went to D1, the HSRP active router, and D1 had no route out: HSRP watches the other router, not the uplink. The fix is a floating default route on each distribution switch through the other one over VLAN 99. [PATHS.md](PATHS.md) shows every VLAN in five scenarios: everything up, either uplink down, either switch off.
+
+### Ping and tracert, worked out in advance (ITN 13 and 17.4)
+
+`python -m campus connectivity` ([CONNECTIVITY.md](CONNECTIVITY.md)) turns the simulator's paths into the test sheet a technician would want: for each VLAN, the gateway to ping, the IPv6 default gateway `ipconfig` should show (HSRP version 2 builds it from the virtual MAC 0005.73A0.0000 plus the group number: FE80::205:73FF:FEA0:3F2 for group 1010), and the exact addresses `tracert` must list on the way to the server. Each hop is the interface where the probe arrived, so VLAN 10's first hop is D1's own SVI address 10.20.10.2, not the HSRP address 10.20.10.1, and the IPv6 hops are global addresses even though the routes use link-local next hops. With D1's uplink down the tracert gains a hop: D1, then D2 at 10.20.99.3, then R1.
+
+The extended pings (ITN 17.4.3) test return paths: `ping 64.100.1.10 source Loopback0` on R1, and from each distribution switch with an SVI as the source. This is what found the ISP routing only the VLAN summary back. `verify` reads the saved outputs (Windows tracert, IOS traceroute, ping from Windows, IOS or Linux) and checks every hop belongs to the expected device.
 
 ## 13. The tool
 
@@ -129,6 +135,7 @@ The first run found a gap. With D1's uplink down, R1's floating route brought re
 | `vlsm` | subnet sizes from the host counts, a VLSM allocation next to the /24 plan, /30 against /31, docs/VLSM.md |
 | `trace` | one packet hop by hop through the routing tables, with links or devices down |
 | `paths` | every VLAN to the dual-stack server and back in five failure scenarios, docs/PATHS.md |
+| `connectivity` | the ping and tracert plan: what each VLAN's host must see hop by hop, the failover paths, extended pings from the routers, docs/CONNECTIVITY.md |
 | `verify` | the lab-day show outputs against the design: VLANs, EtherChannels, HSRP states, STP roles, R1's routes |
 
 ## Notes for the three tracks

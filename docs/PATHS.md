@@ -25,7 +25,7 @@ R1: 0.0.0.0/0 [1/0] via 203.0.113.1 (gigabitethernet0/0) -> ISP
 ISP: 64.100.1.0/24 connected (gigabitethernet0/1) -> delivered to 64.100.1.10
 
 Dual Stack Server -> gateway ISP
-ISP: 10.20.0.0/17 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
+ISP: 10.20.0.0/16 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
 R1: 10.20.0.0/17 [1/0] via 10.20.255.2 (gigabitethernet0/1) -> D1
 D1: 10.20.10.0/24 connected (vlan10) -> delivered to 10.20.10.50
 ```
@@ -40,7 +40,7 @@ R1: 0.0.0.0/0 [1/0] via 203.0.113.1 (gigabitethernet0/0) -> ISP
 ISP: 64.100.1.0/24 connected (gigabitethernet0/1) -> delivered to 64.100.1.10
 
 Dual Stack Server -> gateway ISP
-ISP: 10.20.0.0/17 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
+ISP: 10.20.0.0/16 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
 R1: 10.20.0.0/17 [10/0] via 10.20.255.6 (gigabitethernet0/2) -> D2
 D2: 10.20.10.0/24 connected (vlan10) -> delivered to 10.20.10.50
 ```
@@ -54,7 +54,7 @@ R1: 0.0.0.0/0 [1/0] via 203.0.113.1 (gigabitethernet0/0) -> ISP
 ISP: 64.100.1.0/24 connected (gigabitethernet0/1) -> delivered to 64.100.1.10
 
 Dual Stack Server -> gateway ISP
-ISP: 10.20.0.0/17 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
+ISP: 10.20.0.0/16 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
 R1: 10.20.0.0/17 [1/0] via 10.20.255.2 (gigabitethernet0/1) -> D1
 D1: 10.20.10.0/24 connected (vlan10) -> delivered to 10.20.10.50
 ```
@@ -68,7 +68,7 @@ R1: 0.0.0.0/0 [1/0] via 203.0.113.1 (gigabitethernet0/0) -> ISP
 ISP: 64.100.1.0/24 connected (gigabitethernet0/1) -> delivered to 64.100.1.10
 
 Dual Stack Server -> gateway ISP
-ISP: 10.20.0.0/17 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
+ISP: 10.20.0.0/16 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
 R1: 10.20.0.0/17 [10/0] via 10.20.255.6 (gigabitethernet0/2) -> D2
 D2: 10.20.10.0/24 connected (vlan10) -> delivered to 10.20.10.50
 ```
@@ -82,7 +82,7 @@ R1: 0.0.0.0/0 [1/0] via 203.0.113.1 (gigabitethernet0/0) -> ISP
 ISP: 64.100.1.0/24 connected (gigabitethernet0/1) -> delivered to 64.100.1.10
 
 Dual Stack Server -> gateway ISP
-ISP: 10.20.0.0/17 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
+ISP: 10.20.0.0/16 [1/0] via 203.0.113.2 (gigabitethernet0/0) -> R1
 R1: 10.20.0.0/17 [1/0] via 10.20.255.2 (gigabitethernet0/1) -> D1
 D1: 10.20.10.0/24 connected (vlan10) -> delivered to 10.20.10.50
 ```
