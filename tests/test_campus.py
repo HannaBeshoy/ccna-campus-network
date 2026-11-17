@@ -72,6 +72,8 @@ def test_port_ranges():
     (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(voice=10), "must differ from the data VLAN"),
     (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(voice=999), "voice VLAN 999 does not exist"),
     (lambda r: r["switches"]["A1"]["access_ports"]["Fa0/1-8"].update(max_mac=1), "maximum 2 or more"),
+    (lambda r: r["site"]["hardening"].update(min_password_length=6), "minimum password length below 8"),
+    (lambda r: r["site"]["hardening"].update(exec_timeout=0), "exec-timeout should be 1 to 30"),
     (lambda r: r["vlans"].update({1: {"name": "default", "v4": "10.20.1.0/24", "v6": "2001:db8:acad:1::/64", "primary": "D1"}}),
      "VLAN 1 must not carry traffic"),
 ])
@@ -173,6 +175,33 @@ def test_lint_finds_a_weakened_switch(cfg, old, new, expected):
     text = cfg["A1"].replace(old, new, 1)
     assert text != cfg["A1"]
     assert any(expected in i for i in lint_text(text)), lint_text(text)
+
+
+@pytest.mark.parametrize("old, new, expected", [
+    ("security passwords min-length 10\n", "", "min-length is missing"),
+    ("security passwords min-length 10", "security passwords min-length 6", "below 8"),
+    ("login block-for 120 attempts 3 within 60\n", "", "login block-for is missing"),
+    (" exec-timeout 10 0\nline vty", " exec-timeout 0 0\nline vty", "line con 0: exec-timeout"),
+])
+def test_lint_finds_weak_device_access(cfg, old, new, expected):
+    text = cfg["R1"].replace(old, new, 1)
+    assert text != cfg["R1"]
+    assert any(expected in i for i in lint_text(text)), lint_text(text)
+
+
+def test_hardening_on_every_device(cfg):
+    for name, text in cfg.items():
+        g = parse(text)[""]
+        assert "security passwords min-length 10" in g, name
+        assert "login block-for 120 attempts 3 within 60" in g, name
+
+
+def test_short_lab_password_is_refused(net, tmp_path):
+    from campus.generate import SecretsError
+    p = tmp_path / "secrets.yaml"
+    p.write_text("enable: cisco123\nadmin: Lab-Admin-Pass\n")
+    with pytest.raises(SecretsError, match="enable shorter than 10"):
+        render_all(net, str(p))
 
 
 def test_lint_flags_enable_password():
