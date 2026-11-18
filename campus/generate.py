@@ -79,7 +79,8 @@ def switch_common(net, name):
     dists = net.dist()
     root = [v.id for v in net.routed_vlans if v.primary == name]
     second = [v.id for v in net.routed_vlans if v.primary != name] if name in dists else []
-    channels = [{"id": cid, "range": range_text(ports), "peer": peer, "ports": ports}
+    speeds = {ec["id"]: ec.get("speed") for ec in net.raw["etherchannels"]}
+    channels = [{"id": cid, "range": range_text(ports), "peer": peer, "ports": ports, "speed": speeds[cid]}
                 for cid, ports, peer, _ in sorted(net.channels_of(name))]
     used = {p for c in channels for p in c["ports"]}
     if s["role"] == "access":

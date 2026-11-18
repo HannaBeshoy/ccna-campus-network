@@ -14,7 +14,7 @@ About 1.5 hours. The result, `packet-tracer/campus.pkt`, goes into the repositor
 | A1, A2 | 2960-24TT | |
 | WLC1 | WLC-2504 | |
 | AP | LAP-PT or 3702i | |
-| PCs, a server | PC-PT, Server-PT | the server at 10.20.99.53 (DNS) and 10.20.99.30 (RADIUS), in VLAN 99 |
+| PCs, campus server | PC-PT, Server-PT | on A1 Fa0/20 (VLAN 99) at 10.20.99.53, running DNS and RADIUS (AAA) |
 | IP phone | IP Phone (7960) | on A1 Fa0/2, with a PC on the phone's switch port; plug in its power adapter (Physical tab) |
 | ESP32 stand-in | PC-PT (or an IoT device) | on A1 Fa0/17; Packet Tracer has no ESP32 |
 
@@ -35,6 +35,7 @@ Copper straight-through everywhere, following the port names in `network.yaml`:
 | D2 G1/0/3-4 | A2 Fa0/23-24 |
 | D2 G1/0/10 | WLC1 G1 (management port) |
 | A1 Fa0/19 | AP |
+| A1 Fa0/20 | the campus server (DNS + RADIUS) |
 | A1 Fa0/1, Fa0/9, Fa0/17 | a PC in each of VLAN 10, 20, 30 |
 | A2 Fa0/1 | a test-station PC |
 
@@ -42,11 +43,18 @@ Copper straight-through everywhere, following the port names in `network.yaml`:
 
 On your PC: `cp secrets.example.yaml secrets.yaml`, set two passwords, `python -m campus generate --out build`. Then for each device: CLI tab, `enable`, `configure terminal`, paste `build/<name>.cfg`. Paste ISP and R1 first, then D1 and D2, then A1 and A2. `end`, `copy running-config startup-config`.
 
+Packet Tracer notes, all handled by the generated configs:
+
+- The 2960 accepts only `channel-group 1-6`, so the EtherChannels are numbered 1-5 (`python -m campus check` enforces it).
+- A 3650 Gigabit port facing a 2960 FastEthernet port only joins an LACP bundle with `speed 100` and `duplex full` fixed on both ends.
+- The 2960 checks DHCP snooping per physical port, so the uplink members carry `ip dhcp snooping trust` as well as the Port-channel.
+- If a command is rejected inside an interface block, the lines after it land on the previous interface: check `show running-config` after a paste.
+
 If Packet Tracer rejects a line, note it (device, line, message) for the README: some Packet Tracer versions do not know every IOS command (for example `ip arp inspection validate` on the 2960, or IPv6 HSRP on the 3650). The real switches on the lab day are the reference.
 
 ## 4. WLC and AP (15 min)
 
-WLC1: management interface 10.20.99.20/24, gateway 10.20.99.1, VLAN 99. New dynamic interface `wifi` on VLAN 40, 10.20.40.10/24, gateway 10.20.40.1, DHCP server 10.20.254.1. RADIUS server 10.20.99.30 (shared secret also on the server's AAA service). WLAN `HU01-STAFF`, interface `wifi`, security WPA2 + 802.1X. The AP: static IP 10.20.99.21/24, gateway 10.20.99.1, controller 10.20.99.20 (VLAN 99 has no DHCP). A laptop with a wireless card joins `HU01-STAFF` with a user from the RADIUS server.
+WLC1: management interface 10.20.99.20/24, gateway 10.20.99.1, VLAN 99. New dynamic interface `wifi` on VLAN 40, 10.20.40.10/24, gateway 10.20.40.1, DHCP server 10.20.254.1. RADIUS server 10.20.99.53 (shared secret also on the server's AAA service). WLAN `HU01-STAFF`, interface `wifi`, security WPA2 + 802.1X. The AP: static IP 10.20.99.21/24, gateway 10.20.99.1, controller 10.20.99.20 (VLAN 99 has no DHCP). A laptop with a wireless card joins `HU01-STAFF` with a user from the RADIUS server.
 
 ## 5. Check (15 min)
 

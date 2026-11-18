@@ -57,6 +57,7 @@ def test_port_ranges():
     (lambda r: r["switches"]["A2"]["unused"].remove("Fa0/20"), "not assigned"),
     (lambda r: r["etherchannels"][1].update(b_ports="Fa0/21-23"), "different numbers of members"),
     (lambda r: r["etherchannels"].pop(2), "must have an uplink to each distribution switch"),
+    (lambda r: r["etherchannels"][1].update(id=11), "only accepts channel-group 1-6"),
     (lambda r: r["stp"].update(root_priority=30000), "not a multiple of 4096"),
     (lambda r: r["switches"]["D1"]["uplink"].update(v4="10.20.255.9/30"), "not in the same subnet"),
     (lambda r: r["dhcp_reservations"][0].update(ip="10.20.30.5"), "excluded range"),
@@ -171,6 +172,20 @@ def test_etherchannel_members_match_on_both_ends(cfg, net):
             assert f"interface port-channel{ec['id']}" in s
 
 
+def test_100mb_channels_fix_speed_and_duplex_on_both_ends(cfg, net):
+    # a 3650 Gigabit port facing a 2960 FastEthernet port only bundles with speed and duplex fixed
+    for ec in net.raw["etherchannels"]:
+        for dev, ports in ((ec["a"], ec["a_ports"]), (ec["b"], ec["b_ports"])):
+            s = parse(cfg[dev])
+            for p in model.expand_ports(ports):
+                body = s["interface " + model.long_name(p).lower()]
+                fixed = "speed 100" in body and "duplex full" in body
+                assert fixed == (ec["speed"] == 100), (dev, p)
+                if net.raw["switches"][dev]["role"] == "access":
+                    # Packet Tracer checks DHCP snooping per physical port, so members carry the trust too
+                    assert "ip dhcp snooping trust" in body and "ip arp inspection trust" in body
+
+
 def test_every_physical_port_is_configured(cfg):
     s = parse(cfg["D1"])
     ports = [k for k in s if k.startswith("interface gigabitethernet1/0/")]
@@ -189,7 +204,7 @@ def test_generated_configs_pass_the_policy(cfg):
     (" spanning-tree bpduguard enable\n", "", "BPDU guard is off"),
     (" switchport port-security\n", "", "port security is off"),
     (" switchport trunk native vlan 999\n", "", "native VLAN 1"),
-    (" switchport nonegotiate\n channel-group 11", " channel-group 11", "still sends DTP"),
+    (" switchport nonegotiate\n speed 100", " speed 100", "still sends DTP"),
     (" transport input ssh", " transport input ssh telnet", "SSH only"),
     ("ip ssh version 2\n", "", "SSH version 2"),
     ("ip dhcp snooping vlan 10,20,30,40,50\n", "", "DHCP snooping"),
@@ -269,8 +284,8 @@ def test_stp_prediction(net):
     p = predict(net)
     assert p[10]["root"] == "D1" and p[30]["root"] == "D2"
     roles = {(d, port): r for d, port, r, _ in p[10]["ports"]}
-    assert roles[("A1", "Po11")] == "Root" and roles[("A1", "Po12")] == "Altn"
-    assert roles[("D2", "Po1")] == "Root" and roles[("D2", "Po12")] == "Desg"
+    assert roles[("A1", "Po2")] == "Root" and roles[("A1", "Po3")] == "Altn"
+    assert roles[("D2", "Po1")] == "Root" and roles[("D2", "Po3")] == "Desg"
     # one blocked port per access switch per VLAN, none on the distribution switches
     for vid, r in p.items():
         blocked = [(d, port) for d, port, role, _ in r["ports"] if role == "Altn"]
@@ -287,9 +302,9 @@ def test_stp_reports_a_mac_tie(net):
 # --- lab-day verification --------------------------------------------------------------------------
 def test_parsers():
     ec = parse_etherchannel(open(os.path.join(FIX, "A1_show_etherchannel_summary.txt")).read())
-    assert ec[11] == {"flags": "SU", "protocol": "LACP", "members": {"Fa0/21": "P", "Fa0/22": "P"}}
+    assert ec[2] == {"flags": "SU", "protocol": "LACP", "members": {"Fa0/21": "P", "Fa0/22": "P"}}
     st = parse_spanning_tree(open(os.path.join(FIX, "A1_show_spanning-tree.txt")).read())
-    assert st[30]["ports"] == {"Fa0/17": "Desg", "Po11": "Altn", "Po12": "Root"}
+    assert st[30]["ports"] == {"Fa0/17": "Desg", "Po2": "Altn", "Po3": "Root"}
     routes = parse_routes(open(os.path.join(FIX, "R1_show_ip_route.txt")).read())
     assert ("S*", "0.0.0.0/0", "203.0.113.1") in routes and ("S", "10.20.99.20/32", "10.20.255.6") in routes
 
@@ -297,13 +312,13 @@ def test_parsers():
 def test_verify_passes_on_a_good_capture(net):
     ok, lines = verify_folder(net, FIX)
     assert ok, [l for l in lines if l.startswith("FAIL")]
-    assert lines[-1] == "51 passed, 0 failed"
+    assert lines[-1] == "52 passed, 0 failed"
 
 
 @pytest.mark.parametrize("file, old, new, expected", [
-    ("A1_show_etherchannel_summary.txt", "Fa0/24(P)", "Fa0/24(s)", "Port-channel12 to D2"),
+    ("A1_show_etherchannel_summary.txt", "Fa0/24(P)", "Fa0/24(s)", "Port-channel3 to D2"),
     ("D1_show_standby_brief.txt", "Vl30        30   100 P Standby", "Vl30        30   100 P Active ", "HSRP VLAN 30 IPv4 is Standby"),
-    ("A1_show_spanning-tree.txt", "Po12                Altn BLK", "Po12                Root FWD", "VLAN 10 Po12 is Altn"),
+    ("A1_show_spanning-tree.txt", "Po3                Altn BLK", "Po3                Root FWD", "VLAN 10 Po3 is Altn"),
     ("R1_show_ip_route.txt", "S        10.20.0.0/17 [1/0] via 10.20.255.2", "S        10.20.0.0/17 [10/0] via 10.20.255.6",
      "floating route via D2 not installed"),
     ("A1_show_vlan_brief.txt", "30   IOT  ", "30   IOT2 ", "VLAN 30 IOT exists"),
@@ -463,7 +478,7 @@ def test_voice_vlan_is_routed_and_served(cfg):
     d2 = parse(cfg["D2"])
     assert "standby 50 priority 110" in d2["interface vlan50"]
     assert "ip helper-address 10.20.254.1" in d2["interface vlan50"]
-    assert "switchport trunk allowed vlan 10,20,30,40,50,99" in d2["interface port-channel12"]
+    assert "switchport trunk allowed vlan 10,20,30,40,50,99" in d2["interface port-channel3"]
     assert "ip dhcp snooping vlan 10,20,30,40,50" in parse(cfg["A1"])[""]
 
 
