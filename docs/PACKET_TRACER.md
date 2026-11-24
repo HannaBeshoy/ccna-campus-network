@@ -52,6 +52,9 @@ Packet Tracer notes, all handled by the generated configs:
 - After the .pkt file is reopened (every device reboots), the 2960's DHCP snooping drops the replies the relays send back, even with `ip dhcp snooping trust` on the uplink members and on the Port-channel. In Packet Tracer turn DHCP snooping and DAI off on A1 and A2 (`no ip dhcp snooping`, `no ip arp inspection vlan 10,20,30,40`): DAI checks ARP against the snooping bindings, so it cannot stay on alone. The real 2960s on the lab day keep both, and the lab-day tests check them.
 - Changing a bundle's mode (on, PAgP, LACP) leaves the old protocol on the Port-channel. Delete the Port-channel, recreate it with its trunk settings first, then add the members with the same settings, or the members are suspended ("vlan mask is different").
 - Save the .pkt file in the oldest Packet Tracer version you use: a file saved in a newer version does not open in an older one.
+- The WLC-2504's Config tab has no VLAN field for the management interface, so its management traffic is untagged: on D2 G1/0/10 set `switchport trunk native vlan 99` (Packet Tracer only; VLAN 40 stays tagged). On the real controller the management interface is tagged VLAN 99 and the native VLAN stays 999.
+- The lightweight AP takes its address only by DHCP. The campus server's DHCP service hands out 10.20.99.21-25 in VLAN 99 with the WLC address (option 43) 10.20.99.20, so the AP finds the controller. R1's pools still leave VLAN 99 out.
+- A PC does not repeat SLAAC after a reload: switch its IPv6 setting to Static and back to Automatic. The PC command line has no `tracert -d`; use `tracert`.
 
 If Packet Tracer rejects a line, note it (device, line, message) for the README: some Packet Tracer versions do not know every IOS command (for example `ip arp inspection validate` on the 2960, or IPv6 HSRP on the 3650). The real switches on the lab day are the reference.
 
