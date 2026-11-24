@@ -49,6 +49,9 @@ Packet Tracer notes, all handled by the generated configs:
 - A 3650 Gigabit port facing a 2960 FastEthernet port only joins an LACP bundle with `speed 100` and `duplex full` fixed on both ends.
 - The 2960 checks DHCP snooping per physical port, so the uplink members carry `ip dhcp snooping trust` as well as the Port-channel.
 - If a command is rejected inside an interface block, the lines after it land on the previous interface: check `show running-config` after a paste.
+- After the .pkt file is reopened (every device reboots), the 2960's DHCP snooping drops the replies the relays send back, even with `ip dhcp snooping trust` on the uplink members and on the Port-channel. In Packet Tracer turn DHCP snooping and DAI off on A1 and A2 (`no ip dhcp snooping`, `no ip arp inspection vlan 10,20,30,40`): DAI checks ARP against the snooping bindings, so it cannot stay on alone. The real 2960s on the lab day keep both, and the lab-day tests check them.
+- Changing a bundle's mode (on, PAgP, LACP) leaves the old protocol on the Port-channel. Delete the Port-channel, recreate it with its trunk settings first, then add the members with the same settings, or the members are suspended ("vlan mask is different").
+- Save the .pkt file in the oldest Packet Tracer version you use: a file saved in a newer version does not open in an older one.
 
 If Packet Tracer rejects a line, note it (device, line, message) for the README: some Packet Tracer versions do not know every IOS command (for example `ip arp inspection validate` on the 2960, or IPv6 HSRP on the 3650). The real switches on the lab day are the reference.
 
