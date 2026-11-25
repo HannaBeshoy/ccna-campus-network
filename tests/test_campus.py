@@ -309,6 +309,12 @@ def test_parsers():
     assert ("S*", "0.0.0.0/0", "203.0.113.1") in routes and ("S", "10.20.99.20/32", "10.20.255.6") in routes
 
 
+def test_etherchannel_parser_reads_packet_tracer_port_names():
+    # Packet Tracer's 3650 prints Gig1/0/1, the real one Gi1/0/1: both mean the same member
+    line = "2      Po2(SU)           LACP   Gig1/0/1(P) Gig1/0/2(P) \n"
+    assert parse_etherchannel(line)[2]["members"] == {"Gi1/0/1": "P", "Gi1/0/2": "P"}
+
+
 def test_verify_passes_on_a_good_capture(net):
     ok, lines = verify_folder(net, FIX)
     assert ok, [l for l in lines if l.startswith("FAIL")]

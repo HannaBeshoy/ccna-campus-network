@@ -17,7 +17,7 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus connectivity`: the ping and tracert test plan with every expected hop in IPv4 and IPv6, the failover paths and extended pings from the routers ([docs/CONNECTIVITY.md](docs/CONNECTIVITY.md)); `verify` checks the saved outputs. The extended ping found that the ISP only routed the VLAN summary back
 - [x] `python -m campus roas`: the router-on-a-stick variant (one router with a subinterface per VLAN, one 2960) from the same model, for the module 4 lab or a lab without Layer 3 switches ([docs/ROUTER_ON_A_STICK.md](docs/ROUTER_ON_A_STICK.md))
 - [x] option: R1 takes its outside address by DHCP from the ISP (`ip address dhcp`, default route from the offer with AD 254), checked by the simulator
-- [x] **145 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] **146 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -119,7 +119,7 @@ campus/             model and checks, generator, policy lint, running-config dif
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2); configs/roas/ the router-on-a-stick variant
 docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, ping/tracert plan, router-on-a-stick sheet, Packet Tracer steps, lab-day test sheet
-tests/              145 tests; fixtures/lab holds hand-written show outputs in IOS format
+tests/              146 tests; fixtures/lab holds hand-written show outputs in IOS format
 captures/           where the real lab-day outputs go
 ```
 

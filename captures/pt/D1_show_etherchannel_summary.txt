@@ -1,0 +1,20 @@
+D1#show etherchannel summary
+Flags:  D - down        P - in port-channel
+        I - stand-alone s - suspended
+        H - Hot-standby (LACP only)
+        R - Layer3      S - Layer2
+        U - in use      f - failed to allocate aggregator
+        u - unsuitable for bundling
+        w - waiting to be aggregated
+        d - default port
+
+
+Number of channel-groups in use: 3
+Number of aggregators:           3
+
+Group  Port-channel  Protocol    Ports
+------+-------------+-----------+----------------------------------------------
+
+1      Po1(SU)           LACP   Gig1/0/21(P) Gig1/0/22(P) 
+2      Po2(SU)           LACP   Gig1/0/1(P) Gig1/0/2(P) 
+4      Po4(SU)           LACP   Gig1/0/3(P) Gig1/0/4(P)
