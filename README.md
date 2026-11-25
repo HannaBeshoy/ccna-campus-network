@@ -17,7 +17,7 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus connectivity`: the ping and tracert test plan with every expected hop in IPv4 and IPv6, the failover paths and extended pings from the routers ([docs/CONNECTIVITY.md](docs/CONNECTIVITY.md)); `verify` checks the saved outputs. The extended ping found that the ISP only routed the VLAN summary back
 - [x] `python -m campus roas`: the router-on-a-stick variant (one router with a subinterface per VLAN, one 2960) from the same model, for the module 4 lab or a lab without Layer 3 switches ([docs/ROUTER_ON_A_STICK.md](docs/ROUTER_ON_A_STICK.md))
 - [x] option: R1 takes its outside address by DHCP from the ISP (`ip address dhcp`, default route from the offer with AD 254), checked by the simulator
-- [x] **143 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
+- [x] **146 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
 - [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
@@ -29,10 +29,10 @@ flowchart TB
     R1 ---|"10.20.255.0/30"| D1[D1 Catalyst 3650<br/>HSRP active VLAN 10, 20, 99<br/>STP root VLAN 10, 20, 99]
     R1 ---|"10.20.255.4/30"| D2[D2 Catalyst 3650<br/>HSRP active VLAN 30, 40, 50<br/>STP root VLAN 30, 40, 50]
     D1 ===|"Po1 LACP 2x1G"| D2
-    D1 ===|Po11| A1[A1 Catalyst 2960]
-    D2 ===|Po12| A1
-    D1 ===|Po13| A2[A2 Catalyst 2960]
-    D2 ===|Po14| A2
+    D1 ===|Po2| A1[A1 Catalyst 2960]
+    D2 ===|Po3| A1
+    D1 ===|Po4| A2[A2 Catalyst 2960]
+    D2 ===|Po5| A2
     D2 ---|trunk 40, 99| WLC[WLC1]
     A1 --- PC1[staff PCs + IP phones<br/>VLAN 10 + voice 50]
     A1 --- ESP[ESP32 node<br/>VLAN 30]
@@ -83,10 +83,10 @@ The full addressing plan is generated into [docs/ADDRESSING.md](docs/ADDRESSING.
 
 ```text
 VLAN 10: root bridge D1                    VLAN 30: root bridge D2
-  A1  Po11  Root FWD                         A1  Po11  Altn BLK
-  A1  Po12  Altn BLK                         A1  Po12  Root FWD
+  A1  Po2  Root FWD                         A1  Po2  Altn BLK
+  A1  Po3  Altn BLK                         A1  Po3  Root FWD
   D2  Po1   Root FWD                         D1  Po1   Root FWD
-  D2  Po12  Desg FWD                         D1  Po11  Desg FWD
+  D2  Po3  Desg FWD                         D1  Po2  Desg FWD
 ```
 
 In every VLAN exactly one uplink of each access switch blocks, the one towards the switch that is not that VLAN's root, and no port of the distribution layer blocks. No decision depends on a MAC address, so the real switches must show the same roles; `verify` checks this on the lab day.
@@ -119,8 +119,9 @@ campus/             model and checks, generator, policy lint, running-config dif
 templates/          Jinja2 templates of the router, distribution and access configurations
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2); configs/roas/ the router-on-a-stick variant
 docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, ping/tracert plan, router-on-a-stick sheet, Packet Tracer steps, lab-day test sheet
-tests/              143 tests; fixtures/lab holds hand-written show outputs in IOS format
-captures/           where the real lab-day outputs go
+tests/              146 tests; fixtures/lab holds hand-written show outputs in IOS format
+captures/           where the real lab-day outputs go; captures/pt/ the Packet Tracer outputs (verify: 39 passed)
+packet-tracer/      campus.pkt, the tested Packet Tracer build, with its layout and logins
 ```
 
 The [project guide](docs/PROJECT_GUIDE.md) explains each part with the SRWE module it comes from.

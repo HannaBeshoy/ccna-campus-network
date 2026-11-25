@@ -1,0 +1,9 @@
+A1#show mac address-table interface FastEthernet0/2
+          Mac Address Table
+-------------------------------------------
+
+Vlan    Mac Address       Type        Ports
+----    -----------       --------    -----
+
+  10    000c.85bb.7dae    STATIC      Fa0/2
+  10    0090.2132.5355    STATIC      Fa0/2

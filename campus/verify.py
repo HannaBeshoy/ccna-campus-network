@@ -28,7 +28,7 @@ from .stp import predict
 
 def short(port):
     p = port.replace("FastEthernet", "Fa").replace("GigabitEthernet", "Gi").replace("Port-channel", "Po")
-    return re.sub(r"^G(?=\d)", "Gi", p)
+    return re.sub(r"^Gi?g?(?=\d)", "Gi", p)  # G1/0/1 (lint), Gig1/0/1 (Packet Tracer's 3650)
 
 
 def parse_vlan_brief(text):
@@ -50,7 +50,7 @@ def parse_etherchannel(text):
     for line in text.splitlines():
         m = re.match(r"^(\d+)\s+Po(\d+)\((\w+)\)\s+(\S+)\s*(.*)$", line)
         if m:
-            members = dict(re.findall(r"(\S+?)\((\w+)\)", m.group(5)))
+            members = {short(p): f for p, f in re.findall(r"(\S+?)\((\w+)\)", m.group(5))}
             out[int(m.group(2))] = {"flags": m.group(3), "protocol": m.group(4), "members": members}
     return out
 

@@ -1,0 +1,11 @@
+R1#show ip dhcp binding
+IP address       Client-ID/              Lease expiration        Type
+                 Hardware address
+10.20.10.21      000C.8569.9225           --                     Automatic
+10.20.10.22      0090.2132.5355           --                     Automatic
+10.20.20.21      000D.BD62.3663           --                     Automatic
+10.20.20.22      0060.7099.ECDA           --                     Automatic
+10.20.30.21      0001.64EC.B6AB           --                     Automatic
+10.20.50.23      0001.C78D.6771           --                     Automatic
+10.20.50.21      000C.85BB.7DAE           --                     Automatic
+R1#

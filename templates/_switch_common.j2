@@ -21,6 +21,14 @@ interface {{ ch.range }}
  switchport trunk native vlan {{ parking }}
  switchport trunk allowed vlan {{ trunk_vlans }}
  switchport nonegotiate
+{%- if ch.speed == 100 %}
+ speed 100
+ duplex full
+{%- endif %}
+{%- if role == 'access' %}
+ ip dhcp snooping trust
+ ip arp inspection trust
+{%- endif %}
  channel-group {{ ch.id }} mode active
  no shutdown
 interface Port-channel{{ ch.id }}

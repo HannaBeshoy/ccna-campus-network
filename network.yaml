@@ -77,7 +77,8 @@ switches:
       Fa0/9-16:  {vlan: 20, desc: "test station"}
       Fa0/17-18: {vlan: 30, desc: "ESP32 sensor node", max_mac: 1, violation: shutdown}
       Fa0/19:    {vlan: 99, desc: "lightweight AP (CAPWAP to the WLC)", max_mac: 1}
-    unused: [Fa0/20, G0/1, G0/2]
+      Fa0/20:    {vlan: 99, desc: "DNS + RADIUS server", max_mac: 1}
+    unused: [G0/1, G0/2]
   A2:
     model: WS-C2960-24TT-L
     role: access
@@ -90,10 +91,10 @@ switches:
 
 etherchannels:   # LACP bundles; both ends listed, the generator configures both sides
   - {id: 1,  a: D1, a_ports: G1/0/21-22, b: D2, b_ports: G1/0/21-22, speed: 1000}
-  - {id: 11, a: D1, a_ports: G1/0/1-2,   b: A1, b_ports: Fa0/21-22,  speed: 100}
-  - {id: 12, a: D2, a_ports: G1/0/1-2,   b: A1, b_ports: Fa0/23-24,  speed: 100}
-  - {id: 13, a: D1, a_ports: G1/0/3-4,   b: A2, b_ports: Fa0/21-22,  speed: 100}
-  - {id: 14, a: D2, a_ports: G1/0/3-4,   b: A2, b_ports: Fa0/23-24,  speed: 100}
+  - {id: 2,  a: D1, a_ports: G1/0/1-2,   b: A1, b_ports: Fa0/21-22,  speed: 100}
+  - {id: 3,  a: D2, a_ports: G1/0/1-2,   b: A1, b_ports: Fa0/23-24,  speed: 100}
+  - {id: 4,  a: D1, a_ports: G1/0/3-4,   b: A2, b_ports: Fa0/21-22,  speed: 100}
+  - {id: 5,  a: D2, a_ports: G1/0/3-4,   b: A2, b_ports: Fa0/23-24,  speed: 100}
 
 wlc:             # the wireless LAN controller hangs off D2 on a trunk (configured in its web GUI)
   name: WLC1
@@ -101,7 +102,7 @@ wlc:             # the wireless LAN controller hangs off D2 on a trunk (configur
   port: G1/0/10
   mgmt: 10.20.99.20/24
   mgmt6: "2001:db8:acad:99::20/64"
-  wlan: {ssid: HU01-STAFF, vlan: 40, security: WPA2-Enterprise, radius: 10.20.99.30}
+  wlan: {ssid: HU01-STAFF, vlan: 40, security: WPA2-Enterprise, radius: 10.20.99.53}  # the same server as DNS
 
 isp:             # the outside world for the end-to-end tests (the SRWE 15.1.5 dual-stack topology)
   name: ISP

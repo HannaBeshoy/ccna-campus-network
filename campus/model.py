@@ -262,6 +262,9 @@ def validate(net):
             p.append(f"Port-channel {ec['id']}: {ec['a']} and {ec['b']} have different numbers of members")
         if len(expand_ports(ec["a_ports"])) > 8:
             p.append(f"Port-channel {ec['id']}: more than 8 active members")
+        models = {raw["switches"][sw]["model"] for sw in (ec["a"], ec["b"]) if sw in raw["switches"]}
+        if any("2960" in m for m in models) and not 1 <= ec["id"] <= 6:
+            p.append(f"Port-channel {ec['id']}: a 2960 only accepts channel-group 1-6")
     for sw in accs:
         peers = {peer for _, _, peer, _ in net.channels_of(sw)}
         if peers != set(dists):
