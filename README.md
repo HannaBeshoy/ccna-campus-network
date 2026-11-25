@@ -120,7 +120,8 @@ templates/          Jinja2 templates of the router, distribution and access conf
 configs/            the generated configurations (R1, ISP, D1, D2, A1, A2); configs/roas/ the router-on-a-stick variant
 docs/               project guide (module by module), addressing plan, VLSM sizing, end-to-end paths, ping/tracert plan, router-on-a-stick sheet, Packet Tracer steps, lab-day test sheet
 tests/              146 tests; fixtures/lab holds hand-written show outputs in IOS format
-captures/           where the real lab-day outputs go
+captures/           where the real lab-day outputs go; captures/pt/ the Packet Tracer outputs (verify: 39 passed)
+packet-tracer/      campus.pkt, the tested Packet Tracer build, with its layout and logins
 ```
 
 The [project guide](docs/PROJECT_GUIDE.md) explains each part with the SRWE module it comes from.
