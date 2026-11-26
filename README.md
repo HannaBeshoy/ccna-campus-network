@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/HannaBeshoy/ccna-campus-network/actions/workflows/ci.yml/badge.svg)](https://github.com/HannaBeshoy/ccna-campus-network/actions/workflows/ci.yml)
 
-**Programming Network Devices 1 course project (Cisco CCNA: Switching, Routing and Wireless Essentials)** · University of Debrecen, Faculty of Informatics · Cisco IOS, Python · **configurations generated and checked offline; Packet Tracer build and lab test on the Cisco switches next**
+**Programming Network Devices 1 course project (Cisco CCNA: Switching, Routing and Wireless Essentials)** · University of Debrecen, Faculty of Informatics · Cisco IOS, Python · **configurations generated and checked offline, built and tested in Packet Tracer; lab test on the Cisco switches next**
 
 The network of a small factory test hall, designed the way the SRWE course builds one, module by module: VLANs, trunks, inter-VLAN routing on Layer 3 switches, Rapid PVST+, EtherChannel, DHCPv4 with relays, SLAAC, stateless and stateful DHCPv6, HSRP for the default gateway, switch security, a wireless LAN on a controller, and static routing with a floating backup route, tested end to end against a dual-stack server behind an ISP router. The whole network is described in one file, [network.yaml](network.yaml); a Python tool generates the IOS configuration of all five devices from it, checks the design for mistakes, checks every configuration against a security policy, predicts the spanning-tree result, and on the lab day reads the show-command output from the real switches and says what matches the design and what does not.
 
@@ -18,7 +18,8 @@ The network of a small factory test hall, designed the way the SRWE course build
 - [x] `python -m campus roas`: the router-on-a-stick variant (one router with a subinterface per VLAN, one 2960) from the same model, for the module 4 lab or a lab without Layer 3 switches ([docs/ROUTER_ON_A_STICK.md](docs/ROUTER_ON_A_STICK.md))
 - [x] option: R1 takes its outside address by DHCP from the ISP (`ip address dhcp`, default route from the offer with AD 254), checked by the simulator
 - [x] **146 tests pass** in CI, and CI fails if the committed configs differ from what the model generates
-- [ ] Packet Tracer build ([steps](docs/PACKET_TRACER.md)) and the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
+- [x] Packet Tracer build ([steps](docs/PACKET_TRACER.md)): the whole campus in [packet-tracer/campus.pkt](packet-tracer/campus.pkt), tested with the ping and tracert plan ([captures/pt](captures/pt))
+- [ ] the test on the lab's Cisco switches ([test sheet](docs/LAB_DAY.md))
 
 ## Topology
 
